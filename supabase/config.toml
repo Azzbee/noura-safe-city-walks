@@ -5,3 +5,6 @@ verify_jwt = false
 
 [functions.check-missed-checkins]
 verify_jwt = false
+
+[functions.get-shared-location]
+verify_jwt = false

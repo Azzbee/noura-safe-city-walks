@@ -7,6 +7,8 @@ import { useJourney } from '@/hooks/useJourney';
 import { useRouteCalculation } from '@/hooks/useRouteCalculation';
 import { useSafetyOverlays } from '@/hooks/useSafetyOverlays';
 import { useVoiceSOS } from '@/hooks/useVoiceSOS';
+import { useShakeDetection } from '@/hooks/useShakeDetection';
+import { useLocationSharing } from '@/hooks/useLocationSharing';
 import { TimeOfDay } from '@/services/routing';
 import MapView, { RouteDisplay } from '@/components/map/MapView';
 import DestinationSearch from '@/components/map/DestinationSearch';
@@ -21,6 +23,8 @@ import RouteSelector from '@/components/journey/RouteSelector';
 import JourneyControls from '@/components/journey/JourneyControls';
 import CheckinPrompt from '@/components/journey/CheckinPrompt';
 import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
+import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
+import LocationShareButton from '@/components/journey/LocationShareButton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -143,6 +147,18 @@ export default function Index() {
     onSafeWordDetected: handleSOS,
   });
 
+  // Shake detection SOS
+  const shakeDetection = useShakeDetection({
+    isActive: !!activeJourney,
+    onShakeDetected: handleSOS,
+  });
+
+  // Live location sharing
+  const locationSharing = useLocationSharing({
+    journeyId: activeJourney?.id || null,
+    isActive: !!activeJourney,
+  });
+
   // Convert routes to display format
   const displayRoutes = useMemo<RouteDisplay[]>(() => {
     // Show active journey route
@@ -255,10 +271,20 @@ export default function Index() {
         {/* Active journey controls */}
         {activeJourney && (
           <div className="pointer-events-auto space-y-3">
-            <VoiceSOSIndicator
-              isListening={voiceSOS.isListening}
-              isSupported={voiceSOS.isSupported}
-              hasSafeWord={voiceSOS.hasSafeWord}
+            <div className="flex gap-2 flex-wrap">
+              <VoiceSOSIndicator
+                isListening={voiceSOS.isListening}
+                isSupported={voiceSOS.isSupported}
+                hasSafeWord={voiceSOS.hasSafeWord}
+              />
+              <ShakeSOSIndicator
+                isListening={shakeDetection.isListening}
+                isSupported={shakeDetection.isSupported}
+              />
+            </div>
+            <LocationShareButton
+              shareUrl={locationSharing.shareUrl}
+              onCopy={locationSharing.copyShareUrl}
             />
             <JourneyControls
               journey={activeJourney}
