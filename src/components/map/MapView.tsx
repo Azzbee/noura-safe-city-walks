@@ -1,5 +1,4 @@
-import { useEffect, useRef } from 'react';
-import { MapContainer, TileLayer, Marker, Polyline, useMap } from 'react-leaflet';
+import { useEffect, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -10,38 +9,6 @@ L.Icon.Default.mergeOptions({
   iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png',
   shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 });
-
-// Custom markers
-const userIcon = L.divIcon({
-  className: 'user-marker',
-  html: `<div class="w-4 h-4 bg-fastest rounded-full border-2 border-white shadow-lg animate-pulse"></div>`,
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-});
-
-const destinationIcon = L.divIcon({
-  className: 'destination-marker',
-  html: `<div class="w-5 h-5 bg-danger rounded-full border-2 border-white shadow-lg flex items-center justify-center">
-    <div class="w-2 h-2 bg-white rounded-full"></div>
-  </div>`,
-  iconSize: [20, 20],
-  iconAnchor: [10, 10],
-});
-
-interface MapControllerProps {
-  center: [number, number];
-  zoom?: number;
-}
-
-function MapController({ center, zoom = 15 }: MapControllerProps) {
-  const map = useMap();
-  
-  useEffect(() => {
-    map.setView(center, zoom);
-  }, [map, center, zoom]);
-
-  return null;
-}
 
 export interface RouteDisplay {
   geometry: [number, number][];
@@ -67,43 +34,105 @@ export default function MapView({
   zoom = 15,
   className = '',
 }: MapViewProps) {
-  const mapRef = useRef<L.Map>(null);
+  const [map, setMap] = useState<L.Map | null>(null);
+  const [mapReady, setMapReady] = useState(false);
+
+  // Initialize map
+  useEffect(() => {
+    const container = document.getElementById('map-container');
+    if (!container || map) return;
+
+    const leafletMap = L.map(container, {
+      center: center,
+      zoom: zoom,
+      zoomControl: false,
+    });
+
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+    }).addTo(leafletMap);
+
+    setMap(leafletMap);
+    setMapReady(true);
+
+    return () => {
+      leafletMap.remove();
+    };
+  }, []);
+
+  // Update center/zoom
+  useEffect(() => {
+    if (!map) return;
+    map.setView(center, zoom);
+  }, [map, center, zoom]);
+
+  // User location marker
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    const userIcon = L.divIcon({
+      className: 'user-marker',
+      html: `<div style="width: 16px; height: 16px; background: hsl(217, 91%, 60%); border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
+      iconSize: [16, 16],
+      iconAnchor: [8, 8],
+    });
+
+    let marker: L.Marker | null = null;
+    if (userLocation) {
+      marker = L.marker(userLocation, { icon: userIcon }).addTo(map);
+    }
+
+    return () => {
+      if (marker) marker.remove();
+    };
+  }, [map, mapReady, userLocation]);
+
+  // Destination marker
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    const destIcon = L.divIcon({
+      className: 'destination-marker',
+      html: `<div style="width: 20px; height: 20px; background: hsl(0, 84%, 60%); border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
+        <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+      </div>`,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+
+    let marker: L.Marker | null = null;
+    if (destination) {
+      marker = L.marker(destination, { icon: destIcon }).addTo(map);
+    }
+
+    return () => {
+      if (marker) marker.remove();
+    };
+  }, [map, mapReady, destination]);
+
+  // Routes
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    const polylines: L.Polyline[] = [];
+    routes.forEach((route) => {
+      const polyline = L.polyline(route.geometry, {
+        color: route.color,
+        opacity: route.opacity ?? 0.8,
+        weight: route.weight ?? 5,
+      }).addTo(map);
+      polylines.push(polyline);
+    });
+
+    return () => {
+      polylines.forEach((p) => p.remove());
+    };
+  }, [map, mapReady, routes]);
 
   return (
-    <MapContainer
-      center={center}
-      zoom={zoom}
+    <div 
+      id="map-container" 
       className={`w-full h-full ${className}`}
-      ref={mapRef}
-      zoomControl={false}
-    >
-      <TileLayer
-        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-        url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-      />
-      
-      <MapController center={center} zoom={zoom} />
-
-      {/* Routes */}
-      {routes.map((route, index) => (
-        <Polyline
-          key={index}
-          positions={route.geometry}
-          color={route.color}
-          opacity={route.opacity ?? 0.8}
-          weight={route.weight ?? 5}
-        />
-      ))}
-
-      {/* User location marker */}
-      {userLocation && (
-        <Marker position={userLocation} icon={userIcon} />
-      )}
-
-      {/* Destination marker */}
-      {destination && (
-        <Marker position={destination} icon={destinationIcon} />
-      )}
-    </MapContainer>
+    />
   );
 }
