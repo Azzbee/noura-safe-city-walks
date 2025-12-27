@@ -40,6 +40,17 @@ export interface HealthStatus {
   edge_count: number;
 }
 
+export interface SafetyZonesResponse {
+  zones: Array<{
+    id: string;
+    type: string;
+    center: [number, number];
+    radius: number;
+    name?: string;
+    safety_score?: number;
+  }>;
+}
+
 export type TimeOfDay = 'day' | 'evening' | 'night' | 'late_night';
 
 const getApiUrl = (): string => {

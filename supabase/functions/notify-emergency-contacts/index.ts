@@ -1,8 +1,14 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
+import Twilio from "https://esm.sh/twilio@4.19.0";
 
 const resend = new Resend(Deno.env.get("RESEND_API_KEY"));
+
+// Twilio configuration
+const twilioAccountSid = Deno.env.get("TWILIO_ACCOUNT_SID");
+const twilioAuthToken = Deno.env.get("TWILIO_AUTH_TOKEN");
+const twilioPhoneNumber = Deno.env.get("TWILIO_PHONE_NUMBER");
 
 const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
@@ -15,6 +21,30 @@ interface NotificationRequest {
   journey_id?: string;
   location?: { lat: number; lng: number };
   message?: string;
+}
+
+// Send SMS via Twilio
+async function sendSMS(to: string, body: string): Promise<{ success: boolean; error?: string; sid?: string }> {
+  if (!twilioAccountSid || !twilioAuthToken || !twilioPhoneNumber) {
+    console.log("Twilio credentials not configured");
+    return { success: false, error: "Twilio not configured" };
+  }
+
+  try {
+    const twilioClient = Twilio(twilioAccountSid, twilioAuthToken);
+    const message = await twilioClient.messages.create({
+      body: body.substring(0, 1600), // SMS limit
+      from: twilioPhoneNumber,
+      to: to,
+    });
+    
+    console.log("SMS sent successfully, SID:", message.sid);
+    return { success: true, sid: message.sid };
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+    console.error("Twilio SMS error:", error);
+    return { success: false, error: errorMessage };
+  }
 }
 
 serve(async (req) => {
@@ -72,16 +102,16 @@ serve(async (req) => {
 
       if (journey) {
         journeyInfo = journey.end_address 
-          ? `They were traveling to: ${journey.end_address}` 
+          ? `Traveling to: ${journey.end_address}` 
           : "";
       }
     }
 
-    // Build alert message
+    // Build alert messages
     const alertMessages = {
-      sos: `🆘 EMERGENCY ALERT: ${userName} has triggered an SOS alert!`,
-      missed_checkin: `⚠️ ALERT: ${userName} has missed their safety check-in.`,
-      safe_word: `🚨 URGENT: ${userName} has used their safe word.`,
+      sos: `🆘 EMERGENCY: ${userName} triggered SOS!`,
+      missed_checkin: `⚠️ ALERT: ${userName} missed safety check-in.`,
+      safe_word: `🚨 URGENT: ${userName} used safe word.`,
     };
 
     const alertSubjects = {
@@ -90,20 +120,21 @@ serve(async (req) => {
       safe_word: `🚨 Safe Word Alert from ${userName}`,
     };
 
-    const locationInfo = location 
-      ? `\n\nLast known location: https://www.google.com/maps?q=${location.lat},${location.lng}` 
+    // SMS message (shorter for SMS limits)
+    const locationLink = location 
+      ? `\nLocation: https://maps.google.com/?q=${location.lat},${location.lng}` 
       : "";
-
-    const fullMessage = `${alertMessages[alert_type]}
-
-${journeyInfo}${locationInfo}
-
-${message || "Please try to reach them immediately."}
-
-This is an automated message from Noura Safety App.`;
+    
+    const smsMessage = `${alertMessages[alert_type]}${journeyInfo ? `\n${journeyInfo}` : ""}${locationLink}\n\nPlease contact them NOW. - Noura Safety`;
 
     // Send notifications to each contact
-    const notificationResults = [];
+    const notificationResults: Array<{
+      contact: string;
+      type: string;
+      success: boolean;
+      error?: string;
+      sid?: string;
+    }> = [];
 
     for (const contact of contacts) {
       // Send email notification
@@ -125,12 +156,12 @@ This is an automated message from Noura Safety App.`;
                   ${location ? `
                     <p><strong>Last known location:</strong></p>
                     <a href="https://www.google.com/maps?q=${location.lat},${location.lng}" 
-                       style="color: #60a5fa; display: inline-block; margin: 10px 0;">
-                      View on Google Maps
+                       style="color: #60a5fa; display: inline-block; margin: 10px 0; padding: 10px 20px; background: #2563eb; border-radius: 6px; text-decoration: none;">
+                      📍 View on Google Maps
                     </a>
                   ` : ""}
-                  <p style="margin-top: 20px; color: #9ca3af; font-size: 14px;">
-                    Please try to contact them immediately.
+                  <p style="margin-top: 20px; color: #f87171; font-size: 16px; font-weight: bold;">
+                    ⚠️ Please try to contact them immediately!
                   </p>
                   <hr style="border: none; border-top: 1px solid #333; margin: 20px 0;">
                   <p style="font-size: 12px; color: #6b7280;">
@@ -149,11 +180,17 @@ This is an automated message from Noura Safety App.`;
         }
       }
 
-      // Note: SMS would require a service like Twilio
-      // For now, we log the SMS intent
+      // Send SMS notification via Twilio
       if (contact.notify_sms && contact.phone) {
-        console.log("SMS notification intent for:", contact.phone, "Message:", fullMessage.substring(0, 160));
-        notificationResults.push({ contact: contact.name, type: "sms", success: true, note: "SMS logged (requires Twilio integration)" });
+        console.log("Sending SMS to:", contact.phone);
+        const smsResult = await sendSMS(contact.phone, smsMessage);
+        notificationResults.push({ 
+          contact: contact.name, 
+          type: "sms", 
+          success: smsResult.success,
+          error: smsResult.error,
+          sid: smsResult.sid,
+        });
       }
     }
 
@@ -178,10 +215,14 @@ This is an automated message from Noura Safety App.`;
 
     console.log("Notification results:", notificationResults);
 
+    const successCount = notificationResults.filter(r => r.success).length;
+    const failCount = notificationResults.filter(r => !r.success).length;
+
     return new Response(
       JSON.stringify({ 
         success: true, 
-        notified: notificationResults.filter(r => r.success).length,
+        notified: successCount,
+        failed: failCount,
         results: notificationResults 
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
