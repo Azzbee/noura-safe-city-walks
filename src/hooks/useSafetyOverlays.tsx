@@ -1,44 +1,26 @@
 import { useState, useCallback } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { useToast } from './use-toast';
 
-interface SafetyZone {
+export interface SafetyZone {
   id: string;
-  type: 'well_lit' | 'busy_street' | 'police_station' | 'hospital' | 'metro_station';
+  type: 'well_lit' | 'busy_street' | 'police_station' | 'hospital' | 'metro_station' | 'safe_area' | 'caution_area';
   center: [number, number];
   radius: number;
   name?: string;
+  safety_score?: number;
 }
 
-// Sample safety data for Paris - in production this would come from the backend
-const PARIS_SAFETY_ZONES: SafetyZone[] = [
-  // Metro stations (safe points)
+// Fallback safety data for Paris when backend is unavailable
+const FALLBACK_SAFETY_ZONES: SafetyZone[] = [
   { id: 'metro-1', type: 'metro_station', center: [48.8530, 2.3499], radius: 100, name: 'Châtelet' },
   { id: 'metro-2', type: 'metro_station', center: [48.8738, 2.2950], radius: 100, name: 'Charles de Gaulle Étoile' },
   { id: 'metro-3', type: 'metro_station', center: [48.8445, 2.3740], radius: 100, name: 'Bastille' },
-  { id: 'metro-4', type: 'metro_station', center: [48.8809, 2.3553], radius: 100, name: 'Gare du Nord' },
-  { id: 'metro-5', type: 'metro_station', center: [48.8417, 2.3215], radius: 100, name: 'Montparnasse' },
-  
-  // Police stations
   { id: 'police-1', type: 'police_station', center: [48.8535, 2.3478], radius: 150, name: 'Commissariat 1er' },
-  { id: 'police-2', type: 'police_station', center: [48.8606, 2.3376], radius: 150, name: 'Commissariat 2ème' },
-  { id: 'police-3', type: 'police_station', center: [48.8772, 2.3287], radius: 150, name: 'Commissariat 9ème' },
-  
-  // Hospitals
   { id: 'hospital-1', type: 'hospital', center: [48.8333, 2.3488], radius: 200, name: 'Hôpital Cochin' },
-  { id: 'hospital-2', type: 'hospital', center: [48.8462, 2.3625], radius: 200, name: 'Hôpital Saint-Antoine' },
-  { id: 'hospital-3', type: 'hospital', center: [48.8396, 2.2828], radius: 200, name: 'Hôpital Necker' },
-  
-  // Well-lit areas (major boulevards and popular areas)
   { id: 'lit-1', type: 'well_lit', center: [48.8566, 2.3522], radius: 300, name: 'Île de la Cité' },
   { id: 'lit-2', type: 'well_lit', center: [48.8606, 2.3376], radius: 400, name: 'Les Halles' },
-  { id: 'lit-3', type: 'well_lit', center: [48.8867, 2.3431], radius: 350, name: 'Montmartre' },
-  { id: 'lit-4', type: 'well_lit', center: [48.8584, 2.2945], radius: 350, name: 'Trocadéro' },
-  { id: 'lit-5', type: 'well_lit', center: [48.8738, 2.2950], radius: 300, name: 'Champs-Élysées' },
-  
-  // Busy streets (major commercial areas)
   { id: 'busy-1', type: 'busy_street', center: [48.8690, 2.3321], radius: 250, name: 'Boulevard Haussmann' },
   { id: 'busy-2', type: 'busy_street', center: [48.8530, 2.3700], radius: 300, name: 'Le Marais' },
-  { id: 'busy-3', type: 'busy_street', center: [48.8530, 2.3380], radius: 250, name: 'Saint-Germain' },
 ];
 
 export interface SafetyOverlay {
@@ -51,12 +33,22 @@ export interface SafetyOverlay {
   fillOpacity: number;
 }
 
+const getApiUrl = (): string | null => {
+  try {
+    return import.meta.env.VITE_ROUTING_API_URL || null;
+  } catch {
+    return null;
+  }
+};
+
 export function useSafetyOverlays() {
+  const { toast } = useToast();
   const [overlays, setOverlays] = useState<SafetyOverlay[]>([]);
   const [loading, setLoading] = useState(false);
   const [visible, setVisible] = useState(false);
+  const [usingFallback, setUsingFallback] = useState(false);
 
-  const getOverlayConfig = (type: SafetyZone['type']) => {
+  const getOverlayConfig = (type: SafetyZone['type'], safetyScore?: number) => {
     switch (type) {
       case 'well_lit':
         return { color: 'hsl(45, 93%, 47%)', fillOpacity: 0.15 };
@@ -68,27 +60,74 @@ export function useSafetyOverlays() {
         return { color: 'hsl(0, 84%, 60%)', fillOpacity: 0.3 };
       case 'metro_station':
         return { color: 'hsl(270, 70%, 60%)', fillOpacity: 0.25 };
+      case 'safe_area':
+        return { color: 'hsl(142, 76%, 36%)', fillOpacity: 0.15 };
+      case 'caution_area':
+        return { color: 'hsl(0, 84%, 60%)', fillOpacity: 0.15 };
       default:
+        // Use safety score for dynamic coloring if available
+        if (safetyScore !== undefined) {
+          const hue = safetyScore * 120; // 0 = red, 120 = green
+          return { color: `hsl(${hue}, 70%, 50%)`, fillOpacity: 0.2 };
+        }
         return { color: 'hsl(0, 0%, 50%)', fillOpacity: 0.2 };
     }
   };
 
-  const loadOverlays = useCallback(async () => {
-    setLoading(true);
-    
-    // In production, this would fetch from the Python backend
-    // For now, use static Paris data
-    const safetyOverlays: SafetyOverlay[] = PARIS_SAFETY_ZONES.map((zone) => {
-      const config = getOverlayConfig(zone.type);
+  const convertToOverlays = (zones: SafetyZone[]): SafetyOverlay[] => {
+    return zones.map((zone) => {
+      const config = getOverlayConfig(zone.type, zone.safety_score);
       return {
         ...zone,
         ...config,
       };
     });
+  };
 
-    setOverlays(safetyOverlays);
+  const loadOverlays = useCallback(async (center?: [number, number]) => {
+    setLoading(true);
+    
+    const apiUrl = getApiUrl();
+    
+    if (apiUrl) {
+      try {
+        // Try to fetch from Python backend
+        const lat = center?.[0] ?? 48.8566;
+        const lng = center?.[1] ?? 2.3522;
+        
+        const response = await fetch(`${apiUrl}/api/safety-zones?lat=${lat}&lng=${lng}&radius=2000`, {
+          method: 'GET',
+          headers: { 'Content-Type': 'application/json' },
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.zones && Array.isArray(data.zones)) {
+            setOverlays(convertToOverlays(data.zones));
+            setUsingFallback(false);
+            setLoading(false);
+            return;
+          }
+        }
+        
+        console.log("Backend safety zones not available, using fallback data");
+      } catch (error) {
+        console.log("Could not fetch safety zones from backend:", error);
+      }
+    }
+
+    // Use fallback data
+    setOverlays(convertToOverlays(FALLBACK_SAFETY_ZONES));
+    setUsingFallback(true);
     setLoading(false);
-  }, []);
+    
+    if (apiUrl) {
+      toast({
+        title: 'Using cached safety data',
+        description: 'Live safety zones unavailable, showing sample data',
+      });
+    }
+  }, [toast]);
 
   const toggleVisibility = useCallback(() => {
     if (!visible && overlays.length === 0) {
@@ -97,11 +136,19 @@ export function useSafetyOverlays() {
     setVisible((prev) => !prev);
   }, [visible, overlays.length, loadOverlays]);
 
+  const refreshOverlays = useCallback((center: [number, number]) => {
+    if (visible) {
+      loadOverlays(center);
+    }
+  }, [visible, loadOverlays]);
+
   return {
     overlays: visible ? overlays : [],
     loading,
     visible,
+    usingFallback,
     toggleVisibility,
     loadOverlays,
+    refreshOverlays,
   };
 }
