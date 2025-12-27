@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { SafetyOverlay } from '@/hooks/useSafetyOverlays';
 
 // Fix default marker icons in Leaflet with React
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: () => string })._getIconUrl;
@@ -22,6 +23,7 @@ interface MapViewProps {
   userLocation?: [number, number];
   destination?: [number, number];
   routes?: RouteDisplay[];
+  safetyOverlays?: SafetyOverlay[];
   zoom?: number;
   className?: string;
 }
@@ -31,6 +33,7 @@ export default function MapView({
   userLocation,
   destination,
   routes = [],
+  safetyOverlays = [],
   zoom = 15,
   className = '',
 }: MapViewProps) {
@@ -129,10 +132,64 @@ export default function MapView({
     };
   }, [map, mapReady, routes]);
 
+  // Safety overlays
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    const circles: L.Circle[] = [];
+    const markers: L.Marker[] = [];
+
+    safetyOverlays.forEach((overlay) => {
+      // Add circle for the zone
+      const circle = L.circle(overlay.center, {
+        radius: overlay.radius,
+        color: overlay.color,
+        fillColor: overlay.color,
+        fillOpacity: overlay.fillOpacity,
+        weight: 1,
+      }).addTo(map);
+      circles.push(circle);
+
+      // Add icon marker for POIs (police, hospital, metro)
+      if (['police_station', 'hospital', 'metro_station'].includes(overlay.type)) {
+        const iconHtml = getOverlayIcon(overlay.type);
+        const icon = L.divIcon({
+          className: 'safety-marker',
+          html: iconHtml,
+          iconSize: [24, 24],
+          iconAnchor: [12, 12],
+        });
+
+        const marker = L.marker(overlay.center, { icon })
+          .bindTooltip(overlay.name || '', { 
+            permanent: false, 
+            direction: 'top',
+            className: 'safety-tooltip',
+          })
+          .addTo(map);
+        markers.push(marker);
+      }
+    });
+
+    return () => {
+      circles.forEach((c) => c.remove());
+      markers.forEach((m) => m.remove());
+    };
+  }, [map, mapReady, safetyOverlays]);
+
   return (
     <div 
       id="map-container" 
       className={`w-full h-full ${className}`}
     />
   );
+}
+
+function getOverlayIcon(type: string): string {
+  const icons: Record<string, string> = {
+    police_station: `<div style="width: 24px; height: 24px; background: hsl(217, 91%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🛡</div>`,
+    hospital: `<div style="width: 24px; height: 24px; background: hsl(0, 84%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏥</div>`,
+    metro_station: `<div style="width: 24px; height: 24px; background: hsl(270, 70%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">M</div>`,
+  };
+  return icons[type] || '';
 }

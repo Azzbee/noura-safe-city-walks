@@ -5,12 +5,15 @@ import { useLocation } from '@/hooks/useLocation';
 import { useSavedLocations, SavedLocation } from '@/hooks/useSavedLocations';
 import { useJourney } from '@/hooks/useJourney';
 import { useRouteCalculation } from '@/hooks/useRouteCalculation';
+import { useSafetyOverlays } from '@/hooks/useSafetyOverlays';
 import { TimeOfDay } from '@/services/routing';
 import MapView, { RouteDisplay } from '@/components/map/MapView';
 import DestinationSearch from '@/components/map/DestinationSearch';
 import SavedLocationsBar from '@/components/map/SavedLocationsBar';
 import TimeOfDaySelector from '@/components/map/TimeOfDaySelector';
 import SOSButton from '@/components/map/SOSButton';
+import SafetyOverlayToggle from '@/components/map/SafetyOverlayToggle';
+import SafetyLegend from '@/components/map/SafetyLegend';
 import Header from '@/components/layout/Header';
 import RouteServiceStatus from '@/components/routing/RouteServiceStatus';
 import RouteSelector from '@/components/journey/RouteSelector';
@@ -45,6 +48,13 @@ export default function Index() {
     calculateRoutes, 
     clearRoutes 
   } = useRouteCalculation();
+
+  const {
+    overlays: safetyOverlays,
+    loading: overlaysLoading,
+    visible: overlaysVisible,
+    toggleVisibility: toggleOverlays,
+  } = useSafetyOverlays();
   
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [selectedRouteType, setSelectedRouteType] = useState<'safest' | 'fastest' | 'balanced' | null>(null);
@@ -119,7 +129,10 @@ export default function Index() {
   };
 
   const handleSOS = () => {
-    triggerSOS();
+    const currentLocation = !location.error 
+      ? { lat: location.lat, lng: location.lng } 
+      : undefined;
+    triggerSOS(currentLocation);
   };
 
   // Convert routes to display format
@@ -205,15 +218,26 @@ export default function Index() {
         userLocation={userLocation}
         destination={destination ? [destination.lat, destination.lng] : undefined}
         routes={displayRoutes}
+        safetyOverlays={safetyOverlays}
         zoom={15}
       />
 
       {/* Header with menu and user */}
       <Header />
 
+      {/* Safety overlay toggle and legend */}
+      <div className="absolute top-20 left-4 z-20 space-y-2 pointer-events-auto">
+        <SafetyOverlayToggle
+          visible={overlaysVisible}
+          loading={overlaysLoading}
+          onToggle={toggleOverlays}
+        />
+        {overlaysVisible && <SafetyLegend />}
+      </div>
+
       {/* Check-in prompt overlay */}
       {pendingCheckin && (
-        <div className="absolute top-20 left-4 right-4 z-30">
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 right-4 z-30 max-w-sm mx-auto">
           <CheckinPrompt onRespond={respondToCheckin} />
         </div>
       )}
