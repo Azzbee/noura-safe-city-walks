@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
@@ -6,6 +6,7 @@ import { useSavedLocations, SavedLocation } from '@/hooks/useSavedLocations';
 import { useJourney } from '@/hooks/useJourney';
 import { useRouteCalculation } from '@/hooks/useRouteCalculation';
 import { useSafetyOverlays } from '@/hooks/useSafetyOverlays';
+import { useVoiceSOS } from '@/hooks/useVoiceSOS';
 import { TimeOfDay } from '@/services/routing';
 import MapView, { RouteDisplay } from '@/components/map/MapView';
 import DestinationSearch from '@/components/map/DestinationSearch';
@@ -19,6 +20,7 @@ import RouteServiceStatus from '@/components/routing/RouteServiceStatus';
 import RouteSelector from '@/components/journey/RouteSelector';
 import JourneyControls from '@/components/journey/JourneyControls';
 import CheckinPrompt from '@/components/journey/CheckinPrompt';
+import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -128,12 +130,18 @@ export default function Index() {
     clearRoutes();
   };
 
-  const handleSOS = () => {
+  const handleSOS = useCallback(() => {
     const currentLocation = !location.error 
       ? { lat: location.lat, lng: location.lng } 
       : undefined;
     triggerSOS(currentLocation);
-  };
+  }, [location.error, location.lat, location.lng, triggerSOS]);
+
+  // Voice SOS - listens for safe word during active journey
+  const voiceSOS = useVoiceSOS({
+    isActive: !!activeJourney,
+    onSafeWordDetected: handleSOS,
+  });
 
   // Convert routes to display format
   const displayRoutes = useMemo<RouteDisplay[]>(() => {
@@ -246,7 +254,12 @@ export default function Index() {
       <div className="absolute bottom-0 left-0 right-0 p-4 space-y-4 bg-gradient-to-t from-background via-background/80 to-transparent pointer-events-none">
         {/* Active journey controls */}
         {activeJourney && (
-          <div className="pointer-events-auto">
+          <div className="pointer-events-auto space-y-3">
+            <VoiceSOSIndicator
+              isListening={voiceSOS.isListening}
+              isSupported={voiceSOS.isSupported}
+              hasSafeWord={voiceSOS.hasSafeWord}
+            />
             <JourneyControls
               journey={activeJourney}
               onComplete={completeJourney}
