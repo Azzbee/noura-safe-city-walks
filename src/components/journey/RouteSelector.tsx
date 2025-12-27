@@ -1,0 +1,135 @@
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Route, RouteComparisonResult, formatDuration, formatDistance } from '@/services/routing';
+import { Shield, Zap, Scale, Navigation, X, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
+
+interface RouteSelectorProps {
+  routes: RouteComparisonResult;
+  selectedRoute: 'safest' | 'fastest' | 'balanced' | null;
+  onSelectRoute: (type: 'safest' | 'fastest' | 'balanced') => void;
+  onStartJourney: () => void;
+  onCancel: () => void;
+  loading?: boolean;
+}
+
+interface RouteOptionProps {
+  type: 'safest' | 'fastest' | 'balanced';
+  route: Route;
+  isSelected: boolean;
+  onClick: () => void;
+}
+
+function RouteOption({ type, route, isSelected, onClick }: RouteOptionProps) {
+  const config = {
+    safest: {
+      icon: Shield,
+      label: 'Safest',
+      color: 'text-safe',
+      bgColor: 'bg-safe/10',
+      borderColor: 'border-safe',
+    },
+    fastest: {
+      icon: Zap,
+      label: 'Fastest',
+      color: 'text-fastest',
+      bgColor: 'bg-fastest/10',
+      borderColor: 'border-fastest',
+    },
+    balanced: {
+      icon: Scale,
+      label: 'Balanced',
+      color: 'text-balanced',
+      bgColor: 'bg-balanced/10',
+      borderColor: 'border-balanced',
+    },
+  }[type];
+
+  const Icon = config.icon;
+
+  return (
+    <button
+      onClick={onClick}
+      className={cn(
+        'flex-1 p-3 rounded-lg border-2 transition-all',
+        isSelected 
+          ? `${config.bgColor} ${config.borderColor}` 
+          : 'border-border hover:border-muted-foreground/50'
+      )}
+    >
+      <div className="flex items-center gap-2 mb-2">
+        <Icon className={cn('w-4 h-4', config.color)} />
+        <span className="font-medium text-sm">{config.label}</span>
+      </div>
+      <div className="text-xs text-muted-foreground space-y-1">
+        <div>{formatDistance(route.distance_m)}</div>
+        <div>{formatDuration(route.duration_s)}</div>
+        <div className={config.color}>
+          {Math.round(route.safety_score * 100)}% safe
+        </div>
+      </div>
+    </button>
+  );
+}
+
+export default function RouteSelector({
+  routes,
+  selectedRoute,
+  onSelectRoute,
+  onStartJourney,
+  onCancel,
+  loading,
+}: RouteSelectorProps) {
+  return (
+    <Card className="bg-card/95 backdrop-blur border-primary/20">
+      <CardHeader className="pb-2 flex flex-row items-center justify-between">
+        <CardTitle className="text-lg">Choose Route</CardTitle>
+        <button onClick={onCancel} className="p-1 hover:bg-muted rounded">
+          <X className="w-5 h-5" />
+        </button>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        <div className="flex gap-2">
+          <RouteOption
+            type="safest"
+            route={routes.safest}
+            isSelected={selectedRoute === 'safest'}
+            onClick={() => onSelectRoute('safest')}
+          />
+          <RouteOption
+            type="balanced"
+            route={routes.balanced}
+            isSelected={selectedRoute === 'balanced'}
+            onClick={() => onSelectRoute('balanced')}
+          />
+          <RouteOption
+            type="fastest"
+            route={routes.fastest}
+            isSelected={selectedRoute === 'fastest'}
+            onClick={() => onSelectRoute('fastest')}
+          />
+        </div>
+
+        {routes.comparison && (
+          <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
+            Safest route is {routes.comparison.extra_distance_pct.toFixed(0)}% longer
+            but {routes.comparison.safety_improvement_pct.toFixed(0)}% safer
+          </div>
+        )}
+
+        <Button
+          onClick={onStartJourney}
+          disabled={!selectedRoute || loading}
+          className="w-full"
+        >
+          {loading ? (
+            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+          ) : (
+            <Navigation className="w-4 h-4 mr-2" />
+          )}
+          Start Journey
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
