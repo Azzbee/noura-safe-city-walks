@@ -252,7 +252,7 @@ export function useJourney() {
     toast({ title: 'Journey cancelled' });
   }, [activeJourney, toast]);
 
-  const triggerSOS = useCallback(async () => {
+  const triggerSOS = useCallback(async (currentLocation?: { lat: number; lng: number }) => {
     if (!user) return;
 
     // Update journey status to alert_triggered if active
@@ -265,18 +265,34 @@ export function useJourney() {
       setActiveJourney((prev) => prev ? { ...prev, status: 'alert_triggered' } : null);
     }
 
-    // Create alert
+    // Create alert with location
     const { error } = await supabase
       .from('alerts')
       .insert({
         user_id: user.id,
         journey_id: activeJourney?.id,
         alert_type: 'sos',
+        lat: currentLocation?.lat,
+        lng: currentLocation?.lng,
       });
 
     if (error) {
       toast({ title: 'Error', description: 'Failed to send SOS', variant: 'destructive' });
       return;
+    }
+
+    // Call the notification edge function
+    try {
+      await supabase.functions.invoke('notify-emergency-contacts', {
+        body: {
+          user_id: user.id,
+          alert_type: 'sos',
+          journey_id: activeJourney?.id,
+          location: currentLocation,
+        },
+      });
+    } catch (notifyError) {
+      console.error('Failed to notify contacts:', notifyError);
     }
 
     toast({ 
