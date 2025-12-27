@@ -26,13 +26,6 @@ export default function Index() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const location = useLocation();
-  const { 
-    routes, 
-    loading: routesLoading, 
-    calculateRoutes, 
-    clearRoutes 
-  } = useRouteCalculation();
   const {
     activeJourney,
     pendingCheckin,
@@ -42,6 +35,16 @@ export default function Index() {
     respondToCheckin,
     triggerSOS,
   } = useJourney();
+  
+  // Enable real-time tracking when journey is active
+  const location = useLocation(!!activeJourney);
+  
+  const { 
+    routes, 
+    loading: routesLoading, 
+    calculateRoutes, 
+    clearRoutes 
+  } = useRouteCalculation();
   
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [selectedRouteType, setSelectedRouteType] = useState<'safest' | 'fastest' | 'balanced' | null>(null);
