@@ -33,6 +33,7 @@ import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
 import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
 import LocationShareButton from '@/components/journey/LocationShareButton';
 import CrimeAlertsPanel from '@/components/map/CrimeAlertsPanel';
+import HeatmapToggle from '@/components/map/HeatmapToggle';
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -98,6 +99,7 @@ export default function Index() {
   }, []);
   
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
+  const [heatmapEnabled, setHeatmapEnabled] = useState(false);
   const [selectedRouteType, setSelectedRouteType] = useState<'safest' | 'fastest' | 'balanced' | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => {
     const hour = new Date().getHours();
@@ -296,11 +298,13 @@ export default function Index() {
         destination={destination ? [destination.lat, destination.lng] : undefined}
         routes={displayRoutes}
         safetyOverlays={[...safetyOverlays, ...getCrimeOverlays()]}
+        crimeAlerts={crimeAlerts}
         crowdReports={safetyReports}
         onVoteReport={voteOnReport}
         timeOfDay={timeOfDay}
         locationTrail={locationHistory.getTrailGeometry()}
         isJourneyActive={!!activeJourney}
+        heatmapEnabled={heatmapEnabled}
         zoom={15}
       />
 
@@ -313,6 +317,11 @@ export default function Index() {
           visible={overlaysVisible}
           loading={overlaysLoading}
           onToggle={toggleOverlays}
+        />
+        <HeatmapToggle
+          enabled={heatmapEnabled}
+          onToggle={() => setHeatmapEnabled(!heatmapEnabled)}
+          pointCount={crimeAlerts.length + safetyOverlays.filter(o => o.type === 'danger_zone').length}
         />
         {overlaysVisible && (
           <>

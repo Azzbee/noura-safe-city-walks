@@ -1,10 +1,27 @@
 import { useEffect, useState, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import 'leaflet.heat';
 import { SafetyOverlay } from '@/hooks/useSafetyOverlays';
 import { SafetyReport } from '@/hooks/useSafetyReports';
+import { CrimeAlert } from '@/hooks/useCrimeAlerts';
 import { useCrowdSourcedOverlay } from '@/components/map/CrowdSourcedOverlay';
 import { TimeOfDay } from '@/services/routing';
+
+// Extend Leaflet types for heatmap
+declare module 'leaflet' {
+  function heatLayer(
+    latlngs: Array<[number, number, number?]>,
+    options?: {
+      minOpacity?: number;
+      maxZoom?: number;
+      max?: number;
+      radius?: number;
+      blur?: number;
+      gradient?: { [key: number]: string };
+    }
+  ): L.Layer;
+}
 
 // Fix default marker icons in Leaflet with React
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: () => string })._getIconUrl;
@@ -27,11 +44,13 @@ interface MapViewProps {
   destination?: [number, number];
   routes?: RouteDisplay[];
   safetyOverlays?: SafetyOverlay[];
+  crimeAlerts?: CrimeAlert[];
   crowdReports?: SafetyReport[];
   onVoteReport?: (reportId: string, vote: 1 | -1) => void;
   timeOfDay?: TimeOfDay;
   locationTrail?: [number, number][];
   isJourneyActive?: boolean;
+  heatmapEnabled?: boolean;
   zoom?: number;
   className?: string;
 }
@@ -234,11 +253,13 @@ export default function MapView({
   destination,
   routes = [],
   safetyOverlays = [],
+  crimeAlerts = [],
   crowdReports = [],
   onVoteReport,
   timeOfDay = 'day',
   locationTrail = [],
   isJourneyActive = false,
+  heatmapEnabled = false,
   zoom = 15,
   className = '',
 }: MapViewProps) {
@@ -246,6 +267,7 @@ export default function MapView({
   const [mapReady, setMapReady] = useState(false);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const trailLayerRef = useRef<L.Polyline[]>([]);
+  const heatLayerRef = useRef<L.Layer | null>(null);
 
   // Integrate crowd-sourced reports overlay
   useCrowdSourcedOverlay({
@@ -259,6 +281,67 @@ export default function MapView({
   useEffect(() => {
     injectMarkerStyles();
   }, []);
+
+  // Heatmap layer for crime density visualization
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    // Remove existing heatmap layer
+    if (heatLayerRef.current) {
+      map.removeLayer(heatLayerRef.current);
+      heatLayerRef.current = null;
+    }
+
+    if (!heatmapEnabled) return;
+
+    // Generate heatmap points
+    const points: Array<[number, number, number]> = [];
+
+    // Add points from safety overlays
+    safetyOverlays.forEach((overlay) => {
+      if (overlay.type === 'danger_zone') {
+        points.push([overlay.center[0], overlay.center[1], 1.0]);
+        const offset = overlay.radius / 111000;
+        points.push([overlay.center[0] + offset * 0.5, overlay.center[1], 0.7]);
+        points.push([overlay.center[0] - offset * 0.5, overlay.center[1], 0.7]);
+        points.push([overlay.center[0], overlay.center[1] + offset * 0.5, 0.7]);
+        points.push([overlay.center[0], overlay.center[1] - offset * 0.5, 0.7]);
+      } else if (overlay.type === 'caution_area') {
+        points.push([overlay.center[0], overlay.center[1], 0.6]);
+      }
+    });
+
+    // Add points from crime alerts
+    crimeAlerts.forEach((alert) => {
+      const intensity = alert.severity === 'high' ? 1.0 : alert.severity === 'medium' ? 0.7 : 0.4;
+      points.push([alert.lat, alert.lng, intensity]);
+    });
+
+    if (points.length === 0) return;
+
+    // Create heatmap layer
+    heatLayerRef.current = L.heatLayer(points, {
+      radius: 35,
+      blur: 25,
+      maxZoom: 17,
+      max: 1.0,
+      minOpacity: 0.3,
+      gradient: {
+        0.0: 'hsl(142, 76%, 36%)',
+        0.25: 'hsl(45, 93%, 47%)',
+        0.5: 'hsl(25, 95%, 53%)',
+        0.75: 'hsl(0, 84%, 60%)',
+        1.0: 'hsl(0, 84%, 40%)',
+      },
+    }).addTo(map);
+
+    return () => {
+      if (heatLayerRef.current && map) {
+        map.removeLayer(heatLayerRef.current);
+        heatLayerRef.current = null;
+      }
+    };
+  }, [map, mapReady, heatmapEnabled, safetyOverlays, crimeAlerts]);
 
   // Initialize map
   useEffect(() => {

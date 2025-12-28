@@ -1,10 +1,20 @@
-// Service Worker for Noura Push Notifications
+// Service Worker for Noura - Push Notifications & Offline Support
 
 const CACHE_NAME = 'noura-v1';
+const STATIC_ASSETS = [
+  '/',
+  '/index.html',
+  '/favicon.ico',
+];
 
 // Install event - cache essential files
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker...');
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) => {
+      return cache.addAll(STATIC_ASSETS);
+    })
+  );
   self.skipWaiting();
 });
 
@@ -23,10 +33,59 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Fetch event - serve from cache, fallback to network
+self.addEventListener('fetch', (event) => {
+  // Skip non-GET requests
+  if (event.request.method !== 'GET') return;
+
+  // Skip API and Supabase requests
+  const url = new URL(event.request.url);
+  if (url.pathname.startsWith('/api') || 
+      url.hostname.includes('supabase') ||
+      url.hostname.includes('newsapi')) {
+    return;
+  }
+
+  event.respondWith(
+    caches.match(event.request).then((cachedResponse) => {
+      // Return cached response if available
+      if (cachedResponse) {
+        // Fetch and update cache in background
+        event.waitUntil(
+          fetch(event.request).then((response) => {
+            if (response.ok) {
+              caches.open(CACHE_NAME).then((cache) => {
+                cache.put(event.request, response.clone());
+              });
+            }
+          }).catch(() => {})
+        );
+        return cachedResponse;
+      }
+
+      // Fetch from network
+      return fetch(event.request).then((response) => {
+        // Cache successful responses
+        if (response.ok && response.type === 'basic') {
+          const responseClone = response.clone();
+          caches.open(CACHE_NAME).then((cache) => {
+            cache.put(event.request, responseClone);
+          });
+        }
+        return response;
+      }).catch(() => {
+        // Return offline fallback for navigation requests
+        if (event.request.mode === 'navigate') {
+          return caches.match('/');
+        }
+        return new Response('Offline', { status: 503 });
+      });
+    })
+  );
+});
+
 // Push event - handle incoming push notifications
 self.addEventListener('push', (event) => {
-  console.log('[SW] Push received:', event);
-
   let data = {
     title: 'Safety Alert',
     body: 'You have a new safety notification',
@@ -39,78 +98,44 @@ self.addEventListener('push', (event) => {
   try {
     if (event.data) {
       const payload = event.data.json();
-      data = {
-        ...data,
-        ...payload,
-      };
+      data = { ...data, ...payload };
     }
   } catch (e) {
-    console.error('[SW] Error parsing push data:', e);
     if (event.data) {
       data.body = event.data.text();
     }
   }
 
-  const options = {
-    body: data.body,
-    icon: data.icon || '/favicon.ico',
-    badge: data.badge || '/favicon.ico',
-    tag: data.tag || 'safety-alert',
-    requireInteraction: data.requireInteraction !== false,
-    vibrate: [200, 100, 200, 100, 200],
-    data: {
-      url: data.url || '/',
-      ...data.data,
-    },
-    actions: data.actions || [
-      { action: 'view', title: 'View Details' },
-      { action: 'dismiss', title: 'Dismiss' },
-    ],
-  };
-
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  );
-});
-
-// Notification click event - handle user interaction
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] Notification clicked:', event.action);
-
-  event.notification.close();
-
-  if (event.action === 'dismiss') {
-    return;
-  }
-
-  const urlToOpen = event.notification.data?.url || '/';
-
-  event.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Check if there's already a window/tab open
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          client.postMessage({
-            type: 'NOTIFICATION_CLICK',
-            action: event.action,
-            data: event.notification.data,
-          });
-          return client.focus();
-        }
-      }
-      // If no window is open, open a new one
-      if (clients.openWindow) {
-        return clients.openWindow(urlToOpen);
-      }
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon,
+      badge: data.badge,
+      tag: data.tag,
+      requireInteraction: data.requireInteraction,
+      vibrate: [200, 100, 200, 100, 200],
+      data: { url: data.url || '/' },
+      actions: [
+        { action: 'view', title: 'View Details' },
+        { action: 'dismiss', title: 'Dismiss' },
+      ],
     })
   );
 });
 
-// Handle messages from the main thread
-self.addEventListener('message', (event) => {
-  console.log('[SW] Message received:', event.data);
+// Notification click
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  if (event.action === 'dismiss') return;
 
-  if (event.data.type === 'SKIP_WAITING') {
-    self.skipWaiting();
-  }
+  event.waitUntil(
+    clients.matchAll({ type: 'window' }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      return clients.openWindow(event.notification.data?.url || '/');
+    })
+  );
 });
