@@ -8,6 +8,9 @@ import { useJourney } from '@/hooks/useJourney';
 import { useRouteCalculation } from '@/hooks/useRouteCalculation';
 import { useSafetyOverlays } from '@/hooks/useSafetyOverlays';
 import { useSafetyReports } from '@/hooks/useSafetyReports';
+import { useCrimeAlerts } from '@/hooks/useCrimeAlerts';
+import { useDangerZoneAlerts } from '@/hooks/useDangerZoneAlerts';
+import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useVoiceSOS } from '@/hooks/useVoiceSOS';
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 import { useLocationSharing } from '@/hooks/useLocationSharing';
@@ -29,6 +32,7 @@ import CheckinPrompt from '@/components/journey/CheckinPrompt';
 import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
 import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
 import LocationShareButton from '@/components/journey/LocationShareButton';
+import CrimeAlertsPanel from '@/components/map/CrimeAlertsPanel';
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -73,6 +77,25 @@ export default function Index() {
 
   // Crowd-sourced safety reports
   const { reports: safetyReports, vote: voteOnReport } = useSafetyReports();
+
+  // Real-time crime alerts
+  const { 
+    alerts: crimeAlerts, 
+    loading: crimeAlertsLoading, 
+    lastFetched: crimeAlertsLastFetched,
+    fetchAlerts: refreshCrimeAlerts,
+    getAlertsAsOverlays: getCrimeOverlays,
+  } = useCrimeAlerts();
+
+  // Push notifications
+  const pushNotifications = usePushNotifications();
+
+  // Register service worker on mount
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/sw.js').catch(console.error);
+    }
+  }, []);
   
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [selectedRouteType, setSelectedRouteType] = useState<'safest' | 'fastest' | 'balanced' | null>(null);
@@ -171,6 +194,24 @@ export default function Index() {
     isActive: !!activeJourney,
   });
 
+  // Danger zone proximity alerts
+  const allDangerZones = useMemo(() => {
+    const staticZones = safetyOverlays.filter(
+      o => o.type === 'danger_zone' || o.type === 'caution_area'
+    );
+    return [...staticZones, ...getCrimeOverlays()];
+  }, [safetyOverlays, getCrimeOverlays]);
+
+  const userLocationForAlerts: [number, number] | undefined = !location.error 
+    ? [location.lat, location.lng] 
+    : undefined;
+
+  useDangerZoneAlerts({
+    userLocation: userLocationForAlerts,
+    safetyOverlays: allDangerZones,
+    isEnabled: !!activeJourney,
+  });
+
   // Convert routes to display format
   const displayRoutes = useMemo<RouteDisplay[]>(() => {
     // Show active journey route
@@ -254,7 +295,7 @@ export default function Index() {
         userLocation={userLocation}
         destination={destination ? [destination.lat, destination.lng] : undefined}
         routes={displayRoutes}
-        safetyOverlays={safetyOverlays}
+        safetyOverlays={[...safetyOverlays, ...getCrimeOverlays()]}
         crowdReports={safetyReports}
         onVoteReport={voteOnReport}
         timeOfDay={timeOfDay}
@@ -284,9 +325,15 @@ export default function Index() {
         )}
       </div>
 
-      {/* Quick report button */}
-      <div className="absolute top-20 right-4 z-20 pointer-events-auto">
+      {/* Quick report button and crime alerts panel */}
+      <div className="absolute top-20 right-4 z-20 space-y-2 flex flex-col items-end">
         <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
+        <CrimeAlertsPanel
+          alerts={crimeAlerts}
+          loading={crimeAlertsLoading}
+          lastFetched={crimeAlertsLastFetched}
+          onRefresh={refreshCrimeAlerts}
+        />
       </div>
 
       {/* Check-in prompt overlay */}
