@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Save, Shield, Clock, KeyRound, User, Phone } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Shield, Clock, KeyRound, User, Phone, Bell, ChevronRight } from 'lucide-react';
 
 export default function Settings() {
   const { user, loading: authLoading } = useAuth();
@@ -182,9 +182,29 @@ export default function Settings() {
           </CardContent>
         </Card>
 
+        {/* Notifications Link */}
+        <Card 
+          className="settings-section bg-card/80 border-border/50 backdrop-blur-sm 
+                     animate-fade-in-up opacity-0 stagger-3 cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => navigate('/settings/notifications')}
+        >
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-3 font-display">
+                <div className="p-2 rounded-lg bg-primary/10 transition-colors">
+                  <Bell className="w-5 h-5 text-primary" />
+                </div>
+                Notifications
+              </CardTitle>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <CardDescription className="pl-12">Configure alert types and push notifications</CardDescription>
+          </CardHeader>
+        </Card>
+
         {/* Safety Section */}
         <Card className="settings-section bg-card/80 border-border/50 backdrop-blur-sm 
-                         animate-fade-in-up opacity-0 stagger-3">
+                         animate-fade-in-up opacity-0 stagger-4">
           <CardHeader className="pb-4">
             <CardTitle className="flex items-center gap-3 font-display">
               <div className="p-2 rounded-lg bg-safe/10 transition-colors">
