@@ -3,18 +3,18 @@ import { Shield, Sun, Users, Train, Building2, AlertTriangle, Clock, Pill, MapPi
 
 export default function SafetyLegend() {
   const safeItems = [
-    { icon: Sun, color: 'hsl(45, 93%, 47%)', label: 'Well-lit areas' },
-    { icon: Users, color: 'hsl(142, 76%, 36%)', label: 'Busy streets' },
+    { icon: Sun, color: 'hsl(45, 93%, 55%)', label: 'Well-lit areas' },
+    { icon: Users, color: 'hsl(160, 84%, 39%)', label: 'Busy streets' },
     { icon: Shield, color: 'hsl(217, 91%, 60%)', label: 'Police stations' },
-    { icon: Building2, color: 'hsl(0, 84%, 60%)', label: 'Hospitals' },
-    { icon: Train, color: 'hsl(270, 70%, 60%)', label: 'Metro stations' },
-    { icon: Pill, color: 'hsl(142, 70%, 50%)', label: 'Pharmacies' },
-    { icon: Clock, color: 'hsl(38, 92%, 55%)', label: '24h services' },
-    { icon: MapPin, color: 'hsl(142, 76%, 36%)', label: 'Safe areas', opacity: 0.5 },
+    { icon: Building2, color: 'hsl(0, 72%, 55%)', label: 'Hospitals' },
+    { icon: Train, color: 'hsl(262, 83%, 58%)', label: 'Metro stations' },
+    { icon: Pill, color: 'hsl(173, 80%, 40%)', label: 'Pharmacies' },
+    { icon: Clock, color: 'hsl(25, 95%, 53%)', label: '24h services' },
+    { icon: MapPin, color: 'hsl(142, 71%, 45%)', label: 'Safe areas', opacity: 0.6 },
   ];
 
   const cautionItems = [
-    { icon: AlertTriangle, color: 'hsl(38, 92%, 55%)', label: 'Caution zones' },
+    { icon: AlertTriangle, color: 'hsl(48, 96%, 53%)', label: 'Caution zones' },
     { icon: AlertTriangle, color: 'hsl(0, 84%, 50%)', label: 'Danger zones' },
   ];
 
