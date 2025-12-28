@@ -34,6 +34,8 @@ import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
 import LocationShareButton from '@/components/journey/LocationShareButton';
 import CrimeAlertsPanel from '@/components/map/CrimeAlertsPanel';
 import HeatmapToggle from '@/components/map/HeatmapToggle';
+import SafetyScoreWidget from '@/components/map/SafetyScoreWidget';
+import { useSafetyScore } from '@/hooks/useSafetyScore';
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -214,6 +216,14 @@ export default function Index() {
     isEnabled: !!activeJourney,
   });
 
+  // Safety score calculation
+  const safetyScore = useSafetyScore({
+    userLocation: !location.error ? { lat: location.lat, lng: location.lng } : null,
+    safetyOverlays: [...safetyOverlays, ...getCrimeOverlays()],
+    crimeAlerts,
+    safetyReports,
+  });
+
   // Convert routes to display format
   const displayRoutes = useMemo<RouteDisplay[]>(() => {
     // Show active journey route
@@ -334,8 +344,9 @@ export default function Index() {
         )}
       </div>
 
-      {/* Quick report button and crime alerts panel */}
+      {/* Safety score widget and crime alerts panel */}
       <div className="absolute top-20 right-4 z-20 space-y-2 flex flex-col items-end">
+        <SafetyScoreWidget score={safetyScore} />
         <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
         <CrimeAlertsPanel
           alerts={crimeAlerts}
