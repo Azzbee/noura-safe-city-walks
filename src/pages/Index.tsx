@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
+import { useLocationHistory } from '@/hooks/useLocationHistory';
 import { useSavedLocations, SavedLocation } from '@/hooks/useSavedLocations';
 import { useJourney } from '@/hooks/useJourney';
 import { useRouteCalculation } from '@/hooks/useRouteCalculation';
@@ -25,6 +26,7 @@ import CheckinPrompt from '@/components/journey/CheckinPrompt';
 import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
 import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
 import LocationShareButton from '@/components/journey/LocationShareButton';
+import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
 
@@ -48,6 +50,8 @@ export default function Index() {
   // Enable real-time tracking when journey is active
   const location = useLocation(!!activeJourney);
   
+  // Track location history for trail visualization
+  const locationHistory = useLocationHistory(!!activeJourney);
   const { 
     routes, 
     loading: routesLoading, 
@@ -243,6 +247,8 @@ export default function Index() {
         destination={destination ? [destination.lat, destination.lng] : undefined}
         routes={displayRoutes}
         safetyOverlays={safetyOverlays}
+        locationTrail={locationHistory.getTrailGeometry()}
+        isJourneyActive={!!activeJourney}
         zoom={15}
       />
 

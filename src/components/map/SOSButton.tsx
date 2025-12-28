@@ -1,6 +1,7 @@
 import { AlertTriangle, Phone } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { triggerSOSFeedback } from '@/lib/haptics';
 
 interface SOSButtonProps {
   onPress: () => void;
@@ -15,16 +16,23 @@ export default function SOSButton({
 }: SOSButtonProps) {
   const isLarge = size === 'large';
 
+  const handlePress = () => {
+    // Trigger intense haptic and sound feedback
+    triggerSOSFeedback();
+    onPress();
+  };
+
   return (
     <Button
       variant="destructive"
-      onClick={onPress}
+      onClick={handlePress}
       className={cn(
         'relative overflow-hidden font-display font-bold uppercase tracking-wider',
         'bg-gradient-to-br from-danger via-danger to-danger/80',
         'hover:from-danger/90 hover:via-danger hover:to-danger',
         'animate-pulse-danger transition-all duration-300',
         'border border-danger/30',
+        'active:scale-95',
         isLarge
           ? 'h-24 w-24 rounded-full text-base gap-1 flex-col shadow-glow-danger'
           : 'h-14 px-8 rounded-full gap-3 shadow-elevated',
