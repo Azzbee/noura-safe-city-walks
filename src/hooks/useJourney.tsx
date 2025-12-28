@@ -252,7 +252,7 @@ export function useJourney() {
     toast({ title: 'Journey cancelled' });
   }, [activeJourney, toast]);
 
-  const triggerSOS = useCallback(async (currentLocation?: { lat: number; lng: number }) => {
+  const triggerSOS = useCallback(async (currentLocation?: { lat: number; lng: number }, trackingUrl?: string) => {
     if (!user) return;
 
     // Update journey status to alert_triggered if active
@@ -281,6 +281,42 @@ export function useJourney() {
       return;
     }
 
+    // Generate tracking URL if we have an active journey but no URL passed
+    let liveTrackingUrl = trackingUrl;
+    if (activeJourney && !liveTrackingUrl) {
+      // Try to get existing share token
+      const { data: existingToken } = await supabase
+        .from('location_share_tokens')
+        .select('token')
+        .eq('journey_id', activeJourney.id)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (existingToken) {
+        liveTrackingUrl = `${window.location.origin}/track/${existingToken.token}`;
+      } else {
+        // Create a new share token
+        const token = crypto.randomUUID().replace(/-/g, '');
+        const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+        
+        const { data: newToken } = await supabase
+          .from('location_share_tokens')
+          .insert({
+            journey_id: activeJourney.id,
+            user_id: user.id,
+            token,
+            expires_at: expiresAt,
+          })
+          .select()
+          .single();
+        
+        if (newToken) {
+          liveTrackingUrl = `${window.location.origin}/track/${token}`;
+        }
+      }
+    }
+
     // Call the notification edge function
     try {
       await supabase.functions.invoke('notify-emergency-contacts', {
@@ -289,6 +325,7 @@ export function useJourney() {
           alert_type: 'sos',
           journey_id: activeJourney?.id,
           location: currentLocation,
+          tracking_url: liveTrackingUrl,
         },
       });
     } catch (notifyError) {

@@ -173,12 +173,19 @@ export default function Index() {
     clearRoutes();
   };
 
+  // Live location sharing
+  const locationSharing = useLocationSharing({
+    journeyId: activeJourney?.id || null,
+    isActive: !!activeJourney,
+  });
+
   const handleSOS = useCallback(() => {
     const currentLocation = !location.error 
       ? { lat: location.lat, lng: location.lng } 
       : undefined;
-    triggerSOS(currentLocation);
-  }, [location.error, location.lat, location.lng, triggerSOS]);
+    // Pass tracking URL if available from location sharing
+    triggerSOS(currentLocation, locationSharing.shareUrl || undefined);
+  }, [location.error, location.lat, location.lng, locationSharing.shareUrl, triggerSOS]);
 
   // Voice SOS - listens for safe word during active journey
   const voiceSOS = useVoiceSOS({
@@ -190,12 +197,6 @@ export default function Index() {
   const shakeDetection = useShakeDetection({
     isActive: !!activeJourney,
     onShakeDetected: handleSOS,
-  });
-
-  // Live location sharing
-  const locationSharing = useLocationSharing({
-    journeyId: activeJourney?.id || null,
-    isActive: !!activeJourney,
   });
 
   // Danger zone proximity alerts
