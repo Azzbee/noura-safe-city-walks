@@ -33,53 +33,62 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - SPA navigation support + cache-first for static assets
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip API and Supabase requests
   const url = new URL(event.request.url);
-  if (url.pathname.startsWith('/api') || 
-      url.hostname.includes('supabase') ||
-      url.hostname.includes('newsapi')) {
+
+  // Skip API and backend requests
+  if (
+    url.pathname.startsWith('/api') ||
+    url.hostname.includes('supabase') ||
+    url.hostname.includes('newsapi')
+  ) {
     return;
   }
 
+  // IMPORTANT: For SPA routes (e.g. /settings), always serve index.html
+  // so deep-links work even when the server doesn't have a file at that path.
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      (async () => {
+        try {
+          // Prefer the cached shell for instant navigations.
+          const cached = await caches.match('/index.html');
+          if (cached) return cached;
+
+          const response = await fetch('/index.html');
+          if (response.ok) {
+            const cache = await caches.open(CACHE_NAME);
+            cache.put('/index.html', response.clone());
+          }
+          return response;
+        } catch {
+          return (await caches.match('/')) || new Response('Offline', { status: 503 });
+        }
+      })()
+    );
+    return;
+  }
+
+  // Cache-first for other GET requests
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
-      // Return cached response if available
-      if (cachedResponse) {
-        // Fetch and update cache in background
-        event.waitUntil(
-          fetch(event.request).then((response) => {
-            if (response.ok) {
-              caches.open(CACHE_NAME).then((cache) => {
-                cache.put(event.request, response.clone());
-              });
-            }
-          }).catch(() => {})
-        );
-        return cachedResponse;
-      }
+      if (cachedResponse) return cachedResponse;
 
-      // Fetch from network
-      return fetch(event.request).then((response) => {
-        // Cache successful responses
-        if (response.ok && response.type === 'basic') {
-          const responseClone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => {
-            cache.put(event.request, responseClone);
-          });
-        }
-        return response;
-      }).catch(() => {
-        // Return offline fallback for navigation requests
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-        return new Response('Offline', { status: 503 });
-      });
+      return fetch(event.request)
+        .then((response) => {
+          if (response.ok && response.type === 'basic') {
+            const responseClone = response.clone();
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(event.request, responseClone);
+            });
+          }
+          return response;
+        })
+        .catch(() => new Response('Offline', { status: 503 }));
     })
   );
 });
