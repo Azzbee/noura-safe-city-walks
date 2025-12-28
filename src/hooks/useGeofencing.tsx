@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from './useAuth';
 import { usePushNotifications } from './usePushNotifications';
 import { useToast } from './use-toast';
+import { triggerGeofenceEnterFeedback, triggerGeofenceExitFeedback } from '@/lib/haptics';
 
 interface GeofencedLocation {
   id: string;
@@ -262,6 +263,7 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
 
       if (!prevState.isInside && isInside && location.notify_on_enter) {
         // Entered zone
+        triggerGeofenceEnterFeedback();
         logGeofenceEvent(location.id, 'entered', userLat, userLng);
         showLocalNotification(`Arrived at ${location.name}`, 'Your contacts have been notified.', {
           tag: `geofence-${location.id}`,
@@ -274,6 +276,7 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
         lastNotificationRef.current.set(location.id, now);
       } else if (prevState.isInside && !isInside && location.notify_on_exit) {
         // Exited zone
+        triggerGeofenceExitFeedback();
         logGeofenceEvent(location.id, 'exited', userLat, userLng);
         showLocalNotification(`Left ${location.name}`, 'Your contacts have been notified.', {
           tag: `geofence-${location.id}`,

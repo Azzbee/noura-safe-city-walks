@@ -1,7 +1,7 @@
 // Haptic feedback and sound effects for mobile interactions
 
 // Haptic patterns
-export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'sos';
+export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'sos' | 'geofence_enter' | 'geofence_exit';
 
 const hapticPatterns: Record<HapticPattern, number[]> = {
   light: [10],
@@ -11,6 +11,8 @@ const hapticPatterns: Record<HapticPattern, number[]> = {
   warning: [30, 50, 30],
   error: [50, 100, 50, 100, 50],
   sos: [100, 50, 100, 50, 100, 200, 300, 50, 300, 50, 300, 200, 100, 50, 100, 50, 100], // ... --- ...
+  geofence_enter: [20, 30, 50, 30, 20], // Welcoming pattern
+  geofence_exit: [50, 50, 100], // Departure pattern
 };
 
 // Check if Vibration API is supported
@@ -36,6 +38,8 @@ const soundEffects = {
   checkin: 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
   success: 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
   alert: 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
+  geofence_enter: 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
+  geofence_exit: 'data:audio/wav;base64,UklGRl9vT19XQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YU',
 };
 
 export type SoundEffect = keyof typeof soundEffects;
@@ -108,6 +112,17 @@ export function playSound(effect: SoundEffect): void {
       generateTone(440, 0.2, 0.35, 'sawtooth');
       setTimeout(() => generateTone(440, 0.2, 0.35, 'sawtooth'), 300);
       break;
+    case 'geofence_enter':
+      // Welcoming ascending chime
+      generateTone(392, 0.1, 0.2, 'sine');
+      setTimeout(() => generateTone(523, 0.1, 0.25, 'sine'), 100);
+      setTimeout(() => generateTone(659, 0.15, 0.3, 'sine'), 200);
+      break;
+    case 'geofence_exit':
+      // Gentle descending chime
+      generateTone(659, 0.1, 0.2, 'sine');
+      setTimeout(() => generateTone(523, 0.12, 0.2, 'sine'), 120);
+      break;
   }
 }
 
@@ -144,4 +159,16 @@ export function triggerSuccessFeedback(): void {
 export function triggerAlertFeedback(): void {
   triggerHaptic('error');
   playSound('alert');
+}
+
+// Geofence enter feedback
+export function triggerGeofenceEnterFeedback(): void {
+  triggerHaptic('geofence_enter');
+  playSound('geofence_enter');
+}
+
+// Geofence exit feedback
+export function triggerGeofenceExitFeedback(): void {
+  triggerHaptic('geofence_exit');
+  playSound('geofence_exit');
 }
