@@ -8,7 +8,7 @@ interface RouteServiceStatusProps {
 }
 
 export default function RouteServiceStatus({ className }: RouteServiceStatusProps) {
-  const [status, setStatus] = useState<'checking' | 'connected' | 'unavailable'>('checking');
+  const [status, setStatus] = useState<'checking' | 'connected' | 'demo' | 'unavailable'>('checking');
   const [health, setHealth] = useState<HealthStatus | null>(null);
 
   useEffect(() => {
@@ -16,7 +16,13 @@ export default function RouteServiceStatus({ className }: RouteServiceStatusProp
       try {
         const data = await checkHealth();
         setHealth(data);
-        setStatus(data.status === 'ok' ? 'connected' : 'unavailable');
+        if (data.status === 'demo') {
+          setStatus('demo');
+        } else if (data.status === 'ok') {
+          setStatus('connected');
+        } else {
+          setStatus('unavailable');
+        }
       } catch {
         setStatus('unavailable');
       }
@@ -32,6 +38,7 @@ export default function RouteServiceStatus({ className }: RouteServiceStatusProp
       className={cn(
         'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium',
         status === 'connected' && 'bg-safe/10 text-safe',
+        status === 'demo' && 'bg-primary/10 text-primary',
         status === 'unavailable' && 'bg-danger/10 text-danger',
         status === 'checking' && 'bg-muted text-muted-foreground',
         className
@@ -47,6 +54,12 @@ export default function RouteServiceStatus({ className }: RouteServiceStatusProp
         <>
           <CheckCircle className="w-3 h-3" />
           <span>Routing ready</span>
+        </>
+      )}
+      {status === 'demo' && (
+        <>
+          <CheckCircle className="w-3 h-3" />
+          <span>Demo mode</span>
         </>
       )}
       {status === 'unavailable' && (

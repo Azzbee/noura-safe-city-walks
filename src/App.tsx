@@ -2,16 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "@/hooks/useAuth";
 import { ThemeProvider } from "@/hooks/useTheme";
-import Index from "./pages/Index";
-import Auth from "./pages/Auth";
-import EmergencyContacts from "./pages/EmergencyContacts";
-import JourneyHistory from "./pages/JourneyHistory";
-import Settings from "./pages/Settings";
-import TrackLocation from "./pages/TrackLocation";
-import NotFound from "./pages/NotFound";
+import AnimatedRoutes from "@/components/layout/AnimatedRoutes";
 
 const queryClient = new QueryClient();
 
@@ -23,16 +17,7 @@ const App = () => (
           <Toaster />
           <Sonner />
           <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/contacts" element={<EmergencyContacts />} />
-              <Route path="/history" element={<JourneyHistory />} />
-              <Route path="/settings" element={<Settings />} />
-              <Route path="/track/:token" element={<TrackLocation />} />
-              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <AnimatedRoutes />
           </BrowserRouter>
         </TooltipProvider>
       </AuthProvider>
