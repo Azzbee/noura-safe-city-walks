@@ -2,6 +2,9 @@ import { useEffect, useState, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { SafetyOverlay } from '@/hooks/useSafetyOverlays';
+import { SafetyReport } from '@/hooks/useSafetyReports';
+import { useCrowdSourcedOverlay } from '@/components/map/CrowdSourcedOverlay';
+import { TimeOfDay } from '@/services/routing';
 
 // Fix default marker icons in Leaflet with React
 delete (L.Icon.Default.prototype as unknown as { _getIconUrl?: () => string })._getIconUrl;
@@ -24,6 +27,9 @@ interface MapViewProps {
   destination?: [number, number];
   routes?: RouteDisplay[];
   safetyOverlays?: SafetyOverlay[];
+  crowdReports?: SafetyReport[];
+  onVoteReport?: (reportId: string, vote: 1 | -1) => void;
+  timeOfDay?: TimeOfDay;
   locationTrail?: [number, number][];
   isJourneyActive?: boolean;
   zoom?: number;
@@ -228,6 +234,9 @@ export default function MapView({
   destination,
   routes = [],
   safetyOverlays = [],
+  crowdReports = [],
+  onVoteReport,
+  timeOfDay = 'day',
   locationTrail = [],
   isJourneyActive = false,
   zoom = 15,
@@ -237,6 +246,14 @@ export default function MapView({
   const [mapReady, setMapReady] = useState(false);
   const userMarkerRef = useRef<L.Marker | null>(null);
   const trailLayerRef = useRef<L.Polyline[]>([]);
+
+  // Integrate crowd-sourced reports overlay
+  useCrowdSourcedOverlay({
+    map,
+    reports: crowdReports,
+    timeOfDay,
+    onVote: onVoteReport || (() => {}),
+  });
 
   // Inject marker animation styles
   useEffect(() => {
