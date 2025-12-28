@@ -21,6 +21,7 @@ interface NotificationRequest {
   journey_id?: string;
   location?: { lat: number; lng: number };
   message?: string;
+  tracking_url?: string;
 }
 
 // Send SMS via Twilio
@@ -58,9 +59,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { user_id, alert_type, journey_id, location, message }: NotificationRequest = await req.json();
+    const { user_id, alert_type, journey_id, location, message, tracking_url }: NotificationRequest = await req.json();
 
-    console.log("Notification request:", { user_id, alert_type, journey_id, location });
+    console.log("Notification request:", { user_id, alert_type, journey_id, location, tracking_url });
 
     // Fetch user profile
     const { data: profile } = await supabase
@@ -120,12 +121,16 @@ serve(async (req) => {
       safe_word: `🚨 Safe Word Alert from ${userName}`,
     };
 
-    // SMS message (shorter for SMS limits)
+    // SMS message with tracking URL
     const locationLink = location 
       ? `\nLocation: https://maps.google.com/?q=${location.lat},${location.lng}` 
       : "";
     
-    const smsMessage = `${alertMessages[alert_type]}${journeyInfo ? `\n${journeyInfo}` : ""}${locationLink}\n\nPlease contact them NOW. - Noura Safety`;
+    const trackingLink = tracking_url 
+      ? `\n📍 LIVE TRACKING: ${tracking_url}` 
+      : "";
+    
+    const smsMessage = `${alertMessages[alert_type]}${journeyInfo ? `\n${journeyInfo}` : ""}${locationLink}${trackingLink}\n\nPlease contact them NOW. - Noura Safety`;
 
     // Send notifications to each contact
     const notificationResults: Array<{
@@ -151,21 +156,38 @@ serve(async (req) => {
                   <h1 style="margin: 0;">${alertSubjects[alert_type]}</h1>
                 </div>
                 <div style="padding: 20px; background: #1a1a2e; color: #e0e0e0; border-radius: 0 0 8px 8px;">
-                  <p style="font-size: 16px;">${alertMessages[alert_type]}</p>
+                  <p style="font-size: 18px; font-weight: bold;">${alertMessages[alert_type]}</p>
                   ${journeyInfo ? `<p><strong>Journey:</strong> ${journeyInfo}</p>` : ""}
+                  
+                  ${tracking_url ? `
+                    <div style="margin: 20px 0; padding: 15px; background: #2563eb; border-radius: 8px; text-align: center;">
+                      <p style="margin: 0 0 10px 0; font-size: 14px; color: #93c5fd;">📍 LIVE LOCATION TRACKING</p>
+                      <a href="${tracking_url}" 
+                         style="color: white; display: inline-block; padding: 12px 24px; background: #1d4ed8; border-radius: 6px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                        Track Live Location
+                      </a>
+                      <p style="margin: 10px 0 0 0; font-size: 12px; color: #93c5fd;">See their real-time location on a map</p>
+                    </div>
+                  ` : ""}
+                  
                   ${location ? `
                     <p><strong>Last known location:</strong></p>
                     <a href="https://www.google.com/maps?q=${location.lat},${location.lng}" 
-                       style="color: #60a5fa; display: inline-block; margin: 10px 0; padding: 10px 20px; background: #2563eb; border-radius: 6px; text-decoration: none;">
+                       style="color: #60a5fa; display: inline-block; margin: 10px 0; padding: 10px 20px; background: #374151; border-radius: 6px; text-decoration: none;">
                       📍 View on Google Maps
                     </a>
                   ` : ""}
-                  <p style="margin-top: 20px; color: #f87171; font-size: 16px; font-weight: bold;">
-                    ⚠️ Please try to contact them immediately!
-                  </p>
+                  
+                  <div style="margin-top: 20px; padding: 15px; background: #7f1d1d; border-radius: 8px;">
+                    <p style="margin: 0; color: #fca5a5; font-size: 16px; font-weight: bold;">
+                      ⚠️ PLEASE TRY TO CONTACT THEM IMMEDIATELY!
+                    </p>
+                  </div>
+                  
                   <hr style="border: none; border-top: 1px solid #333; margin: 20px 0;">
                   <p style="font-size: 12px; color: #6b7280;">
-                    This is an automated message from Noura Safety App.
+                    This is an automated emergency message from Noura Safety App.
+                    ${tracking_url ? `Live tracking link: ${tracking_url}` : ""}
                   </p>
                 </div>
               </div>
