@@ -38,6 +38,15 @@ export interface RouteDisplay {
   weight?: number;
 }
 
+interface GeofenceZone {
+  id: string;
+  name: string;
+  lat: number;
+  lng: number;
+  radius_m: number;
+  isActive?: boolean;
+}
+
 interface MapViewProps {
   center: [number, number];
   userLocation?: [number, number];
@@ -51,6 +60,8 @@ interface MapViewProps {
   locationTrail?: [number, number][];
   isJourneyActive?: boolean;
   heatmapEnabled?: boolean;
+  geofenceZones?: GeofenceZone[];
+  geofenceVisible?: boolean;
   zoom?: number;
   className?: string;
 }
@@ -260,6 +271,8 @@ export default function MapView({
   locationTrail = [],
   isJourneyActive = false,
   heatmapEnabled = false,
+  geofenceZones = [],
+  geofenceVisible = true,
   zoom = 15,
   className = '',
 }: MapViewProps) {
@@ -268,6 +281,7 @@ export default function MapView({
   const userMarkerRef = useRef<L.Marker | null>(null);
   const trailLayerRef = useRef<L.Polyline[]>([]);
   const heatLayerRef = useRef<L.Layer | null>(null);
+  const geofenceLayersRef = useRef<L.Layer[]>([]);
 
   // Integrate crowd-sourced reports overlay
   useCrowdSourcedOverlay({
@@ -342,6 +356,75 @@ export default function MapView({
       }
     };
   }, [map, mapReady, heatmapEnabled, safetyOverlays, crimeAlerts]);
+
+  // Geofence circles overlay
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    // Clear existing geofence layers
+    geofenceLayersRef.current.forEach(layer => layer.remove());
+    geofenceLayersRef.current = [];
+
+    if (!geofenceVisible || geofenceZones.length === 0) return;
+
+    geofenceZones.forEach((zone) => {
+      const isActive = zone.isActive;
+      
+      // Outer glow
+      const glowCircle = L.circle([zone.lat, zone.lng], {
+        radius: zone.radius_m + 20,
+        color: isActive ? 'hsl(142, 76%, 45%)' : 'hsl(38, 92%, 55%)',
+        fillColor: isActive ? 'hsl(142, 76%, 45%)' : 'hsl(38, 92%, 55%)',
+        fillOpacity: 0.08,
+        weight: 0,
+      }).addTo(map);
+      geofenceLayersRef.current.push(glowCircle);
+
+      // Main circle
+      const circle = L.circle([zone.lat, zone.lng], {
+        radius: zone.radius_m,
+        color: isActive ? 'hsl(142, 76%, 45%)' : 'hsl(38, 92%, 55%)',
+        fillColor: isActive ? 'hsl(142, 76%, 45%)' : 'hsl(38, 92%, 55%)',
+        fillOpacity: isActive ? 0.25 : 0.15,
+        weight: 2,
+        dashArray: '6, 4',
+      }).addTo(map);
+
+      circle.bindTooltip(`🛡️ ${zone.name}`, {
+        permanent: false,
+        direction: 'top',
+        className: 'safety-tooltip',
+      });
+
+      geofenceLayersRef.current.push(circle);
+
+      // Center marker
+      const markerIcon = L.divIcon({
+        className: 'geofence-marker',
+        html: `
+          <div style="
+            width: 24px; height: 24px;
+            background: ${isActive ? 'hsl(142, 76%, 45%)' : 'hsl(38, 92%, 55%)'};
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: white; font-size: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: 2px solid white;
+          ">🛡️</div>
+        `,
+        iconSize: [24, 24],
+        iconAnchor: [12, 12],
+      });
+
+      const marker = L.marker([zone.lat, zone.lng], { icon: markerIcon }).addTo(map);
+      geofenceLayersRef.current.push(marker);
+    });
+
+    return () => {
+      geofenceLayersRef.current.forEach(layer => layer.remove());
+      geofenceLayersRef.current = [];
+    };
+  }, [map, mapReady, geofenceZones, geofenceVisible]);
 
   // Initialize map
   useEffect(() => {

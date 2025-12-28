@@ -37,9 +37,12 @@ import HeatmapToggle from '@/components/map/HeatmapToggle';
 import SafetyScoreWidget from '@/components/map/SafetyScoreWidget';
 import { useSafetyScore } from '@/hooks/useSafetyScore';
 import { useGeofencing } from '@/hooks/useGeofencing';
+import { useSafetyPreferences } from '@/hooks/useSafetyPreferences';
+import SafetyPreferencesOnboarding from '@/components/onboarding/SafetyPreferencesOnboarding';
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Shield } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // Paris center coordinates
 const PARIS_CENTER: [number, number] = [48.8566, 2.3522];
@@ -103,6 +106,7 @@ export default function Index() {
   
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
+  const [geofenceVisible, setGeofenceVisible] = useState(true);
   const [selectedRouteType, setSelectedRouteType] = useState<'safest' | 'fastest' | 'balanced' | null>(null);
   const [timeOfDay, setTimeOfDay] = useState<TimeOfDay>(() => {
     const hour = new Date().getHours();
@@ -219,11 +223,24 @@ export default function Index() {
   });
 
   // Geofencing for safe zones
-  useGeofencing({
+  const geofencing = useGeofencing({
     userLat: !location.error ? location.lat : null,
     userLng: !location.error ? location.lng : null,
     enabled: !location.error,
   });
+
+  // Safety preferences onboarding
+  const safetyPreferences = useSafetyPreferences();
+
+  const geofenceZonesForMap = geofencing.geofencedLocations.map(loc => ({
+    id: loc.id,
+    name: loc.name,
+    lat: loc.lat,
+    lng: loc.lng,
+    radius_m: loc.radius_m,
+    isActive: geofencing.activeZones.includes(loc.id),
+  }));
+
   const safetyScore = useSafetyScore({
     userLocation: !location.error ? { lat: location.lat, lng: location.lng } : null,
     safetyOverlays: [...safetyOverlays, ...getCrimeOverlays()],
@@ -308,6 +325,14 @@ export default function Index() {
 
   return (
     <div className="relative h-screen w-screen overflow-hidden">
+      {/* Safety preferences onboarding */}
+      {safetyPreferences.hasCompletedOnboarding === false && (
+        <SafetyPreferencesOnboarding
+          onComplete={safetyPreferences.savePreferences}
+          onSkip={safetyPreferences.skipOnboarding}
+        />
+      )}
+
       {/* Full-screen map */}
       <MapView
         center={mapCenter}
@@ -322,6 +347,8 @@ export default function Index() {
         locationTrail={locationHistory.getTrailGeometry()}
         isJourneyActive={!!activeJourney}
         heatmapEnabled={heatmapEnabled}
+        geofenceZones={geofenceZonesForMap}
+        geofenceVisible={geofenceVisible}
         zoom={15}
       />
 
@@ -340,6 +367,15 @@ export default function Index() {
           onToggle={() => setHeatmapEnabled(!heatmapEnabled)}
           pointCount={crimeAlerts.length + safetyOverlays.filter(o => o.type === 'danger_zone').length}
         />
+        <Button
+          variant={geofenceVisible ? "default" : "outline"}
+          size="sm"
+          onClick={() => setGeofenceVisible(!geofenceVisible)}
+          className="h-9 gap-1.5"
+        >
+          <Shield className="w-4 h-4" />
+          <span className="text-xs">Safe Zones</span>
+        </Button>
         {overlaysVisible && (
           <>
             <SafetyTimeFilter

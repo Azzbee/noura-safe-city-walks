@@ -390,6 +390,7 @@ export type Database = {
           id: string
           phone: string | null
           safe_word: string | null
+          safety_preferences: Json | null
           updated_at: string
           user_id: string
         }
@@ -401,6 +402,7 @@ export type Database = {
           id?: string
           phone?: string | null
           safe_word?: string | null
+          safety_preferences?: Json | null
           updated_at?: string
           user_id: string
         }
@@ -412,6 +414,7 @@ export type Database = {
           id?: string
           phone?: string | null
           safe_word?: string | null
+          safety_preferences?: Json | null
           updated_at?: string
           user_id?: string
         }
