@@ -7,6 +7,7 @@ import { useSavedLocations, SavedLocation } from '@/hooks/useSavedLocations';
 import { useJourney } from '@/hooks/useJourney';
 import { useRouteCalculation } from '@/hooks/useRouteCalculation';
 import { useSafetyOverlays } from '@/hooks/useSafetyOverlays';
+import { useSafetyReports } from '@/hooks/useSafetyReports';
 import { useVoiceSOS } from '@/hooks/useVoiceSOS';
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 import { useLocationSharing } from '@/hooks/useLocationSharing';
@@ -18,6 +19,8 @@ import TimeOfDaySelector from '@/components/map/TimeOfDaySelector';
 import SOSButton from '@/components/map/SOSButton';
 import SafetyOverlayToggle from '@/components/map/SafetyOverlayToggle';
 import SafetyLegend from '@/components/map/SafetyLegend';
+import SafetyTimeFilter from '@/components/map/SafetyTimeFilter';
+import QuickReportButton from '@/components/map/QuickReportButton';
 import Header from '@/components/layout/Header';
 import RouteServiceStatus from '@/components/routing/RouteServiceStatus';
 import RouteSelector from '@/components/journey/RouteSelector';
@@ -64,7 +67,12 @@ export default function Index() {
     loading: overlaysLoading,
     visible: overlaysVisible,
     toggleVisibility: toggleOverlays,
+    timeFilter: safetyTimeFilter,
+    setTimeFilter: setSafetyTimeFilter,
   } = useSafetyOverlays();
+
+  // Crowd-sourced safety reports
+  const { reports: safetyReports, vote: voteOnReport } = useSafetyReports();
   
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [selectedRouteType, setSelectedRouteType] = useState<'safest' | 'fastest' | 'balanced' | null>(null);
@@ -247,6 +255,9 @@ export default function Index() {
         destination={destination ? [destination.lat, destination.lng] : undefined}
         routes={displayRoutes}
         safetyOverlays={safetyOverlays}
+        crowdReports={safetyReports}
+        onVoteReport={voteOnReport}
+        timeOfDay={timeOfDay}
         locationTrail={locationHistory.getTrailGeometry()}
         isJourneyActive={!!activeJourney}
         zoom={15}
@@ -262,7 +273,20 @@ export default function Index() {
           loading={overlaysLoading}
           onToggle={toggleOverlays}
         />
-        {overlaysVisible && <SafetyLegend />}
+        {overlaysVisible && (
+          <>
+            <SafetyTimeFilter
+              value={safetyTimeFilter}
+              onChange={setSafetyTimeFilter}
+            />
+            <SafetyLegend />
+          </>
+        )}
+      </div>
+
+      {/* Quick report button */}
+      <div className="absolute top-20 right-4 z-20 pointer-events-auto">
+        <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
       </div>
 
       {/* Check-in prompt overlay */}
