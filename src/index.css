@@ -148,6 +148,17 @@
   }
 }
 
+/* Theme transition */
+.theme-transitioning,
+.theme-transitioning *,
+.theme-transitioning *::before,
+.theme-transitioning *::after {
+  transition: background-color 0.4s ease, 
+              border-color 0.4s ease, 
+              color 0.3s ease,
+              box-shadow 0.4s ease !important;
+}
+
 /* Atmospheric background with subtle grain */
 body::before {
   content: '';
@@ -159,6 +170,14 @@ body::before {
     radial-gradient(ellipse 40% 30% at 0% 80%, hsl(160 60% 45% / 0.04), transparent);
   pointer-events: none;
   z-index: -1;
+  transition: opacity 0.4s ease;
+}
+
+.light body::before {
+  background: 
+    radial-gradient(ellipse 80% 50% at 50% -20%, hsl(38 85% 45% / 0.12), transparent),
+    radial-gradient(ellipse 60% 40% at 100% 100%, hsl(200 75% 45% / 0.08), transparent),
+    radial-gradient(ellipse 40% 30% at 0% 80%, hsl(160 55% 38% / 0.06), transparent);
 }
 
 /* Noise texture overlay for depth */
@@ -312,6 +331,54 @@ body::after {
   }
 }
 
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-4px);
+  }
+}
+
+@keyframes route-dash {
+  to {
+    stroke-dashoffset: -30;
+  }
+}
+
+@keyframes route-glow-pulse {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px currentColor) drop-shadow(0 0 8px currentColor);
+    opacity: 0.8;
+  }
+  50% {
+    filter: drop-shadow(0 0 8px currentColor) drop-shadow(0 0 16px currentColor);
+    opacity: 1;
+  }
+}
+
+@keyframes card-hover-glow {
+  0%, 100% {
+    box-shadow: 
+      0 4px 20px -4px hsl(0 0% 0% / 0.2),
+      0 0 0 0 hsl(var(--primary) / 0);
+  }
+  50% {
+    box-shadow: 
+      0 8px 30px -4px hsl(0 0% 0% / 0.25),
+      0 0 20px -4px hsl(var(--primary) / 0.1);
+  }
+}
+
+@keyframes icon-bounce {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.15);
+  }
+}
+
 /* Animation utilities */
 .animate-pulse-safe {
   animation: pulse-glow-safe 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
@@ -352,12 +419,17 @@ body::after {
   animation: breathe 3s ease-in-out infinite;
 }
 
+.animate-float {
+  animation: float 3s ease-in-out infinite;
+}
+
 /* Staggered animation delays for orchestrated reveals */
 .stagger-1 { animation-delay: 0.05s; }
 .stagger-2 { animation-delay: 0.1s; }
 .stagger-3 { animation-delay: 0.15s; }
 .stagger-4 { animation-delay: 0.2s; }
 .stagger-5 { animation-delay: 0.25s; }
+.stagger-6 { animation-delay: 0.3s; }
 
 /* Glass morphism utilities */
 .glass {
@@ -404,6 +476,77 @@ body::after {
   width: 40px;
   height: 2px;
   background: linear-gradient(90deg, hsl(var(--primary)), transparent);
+}
+
+/* Interactive card styles */
+.interactive-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: pointer;
+}
+
+.interactive-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 
+    0 8px 30px -8px hsl(0 0% 0% / 0.3),
+    0 0 0 1px hsl(var(--primary) / 0.1),
+    0 0 20px -8px hsl(var(--primary) / 0.15);
+  border-color: hsl(var(--primary) / 0.3);
+}
+
+.interactive-card:active {
+  transform: translateY(0);
+}
+
+/* Icon hover effects */
+.icon-hover {
+  transition: all 0.2s ease;
+}
+
+.icon-hover:hover {
+  transform: scale(1.1);
+  color: hsl(var(--primary));
+}
+
+/* Settings section hover */
+.settings-section {
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.settings-section::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, hsl(var(--primary) / 0.03), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.settings-section:hover::before {
+  opacity: 1;
+}
+
+.settings-section:hover {
+  border-color: hsl(var(--primary) / 0.2);
+}
+
+/* Input focus glow */
+.input-glow:focus {
+  box-shadow: 
+    0 0 0 2px hsl(var(--background)),
+    0 0 0 4px hsl(var(--primary) / 0.3),
+    0 0 15px -3px hsl(var(--primary) / 0.2);
+}
+
+/* Route animation styles for Leaflet */
+.animated-route {
+  stroke-dasharray: 10 20;
+  animation: route-dash 1s linear infinite;
+}
+
+.route-glow {
+  animation: route-glow-pulse 2s ease-in-out infinite;
 }
 
 /* Focus states - refined */
