@@ -7,7 +7,8 @@ import { formatDuration, formatDistance } from '@/services/routing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2, MapPin, Clock, Shield, AlertTriangle, CheckCircle, XCircle, Navigation } from 'lucide-react';
+import { JourneyHistorySkeleton } from '@/components/ui/art-deco-skeleton';
+import { ArrowLeft, MapPin, Clock, Shield, AlertTriangle, CheckCircle, XCircle, Navigation } from 'lucide-react';
 import { format } from 'date-fns';
 
 function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
@@ -140,8 +141,18 @@ export default function JourneyHistory() {
 
   if (authLoading || loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="min-h-screen bg-background">
+        <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border">
+          <div className="container max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/')}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <h1 className="text-xl font-semibold">Journey History</h1>
+          </div>
+        </header>
+        <main className="container max-w-lg mx-auto px-4 py-6">
+          <JourneyHistorySkeleton />
+        </main>
       </div>
     );
   }

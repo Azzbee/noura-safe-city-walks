@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { SafetyOverlay } from '@/hooks/useSafetyOverlays';
@@ -24,8 +24,112 @@ interface MapViewProps {
   destination?: [number, number];
   routes?: RouteDisplay[];
   safetyOverlays?: SafetyOverlay[];
+  locationTrail?: [number, number][];
+  isJourneyActive?: boolean;
   zoom?: number;
   className?: string;
+}
+
+// Create animated user marker HTML
+function createUserMarkerHTML(isActive: boolean): string {
+  const baseColor = isActive ? 'hsl(38, 92%, 55%)' : 'hsl(217, 91%, 60%)';
+  const pulseColor = isActive ? 'hsl(38, 92%, 55%)' : 'hsl(217, 91%, 60%)';
+  
+  return `
+    <div class="user-marker-container" style="position: relative; width: 40px; height: 40px;">
+      <!-- Outer pulse ring -->
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: ${pulseColor};
+        opacity: 0.2;
+        animation: user-pulse 2s ease-out infinite;
+      "></div>
+      <!-- Inner pulse ring -->
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        background: ${pulseColor};
+        opacity: 0.3;
+        animation: user-pulse 2s ease-out infinite 0.5s;
+      "></div>
+      <!-- Main marker -->
+      <div style="
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 18px;
+        height: 18px;
+        background: ${baseColor};
+        border-radius: 50%;
+        border: 3px solid white;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.4), 0 0 20px ${pulseColor}40;
+      "></div>
+      <!-- Direction indicator (arrow) when active -->
+      ${isActive ? `
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 6px solid transparent;
+          border-right: 6px solid transparent;
+          border-bottom: 10px solid ${baseColor};
+          filter: drop-shadow(0 1px 2px rgba(0,0,0,0.3));
+        "></div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// Add CSS animation styles to document
+function injectMarkerStyles(): void {
+  const styleId = 'noura-marker-styles';
+  if (document.getElementById(styleId)) return;
+  
+  const style = document.createElement('style');
+  style.id = styleId;
+  style.textContent = `
+    @keyframes user-pulse {
+      0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 0.4;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1.5);
+        opacity: 0;
+      }
+    }
+    
+    @keyframes trail-glow {
+      0%, 100% {
+        stroke-opacity: 0.6;
+        filter: drop-shadow(0 0 4px currentColor);
+      }
+      50% {
+        stroke-opacity: 0.9;
+        filter: drop-shadow(0 0 8px currentColor);
+      }
+    }
+    
+    .location-trail {
+      animation: trail-glow 2s ease-in-out infinite;
+    }
+  `;
+  document.head.appendChild(style);
 }
 
 export default function MapView({
@@ -34,11 +138,20 @@ export default function MapView({
   destination,
   routes = [],
   safetyOverlays = [],
+  locationTrail = [],
+  isJourneyActive = false,
   zoom = 15,
   className = '',
 }: MapViewProps) {
   const [map, setMap] = useState<L.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
+  const userMarkerRef = useRef<L.Marker | null>(null);
+  const trailLayerRef = useRef<L.Polyline[]>([]);
+
+  // Inject marker animation styles
+  useEffect(() => {
+    injectMarkerStyles();
+  }, []);
 
   // Initialize map
   useEffect(() => {
@@ -69,26 +182,82 @@ export default function MapView({
     map.setView(center, zoom);
   }, [map, center, zoom]);
 
-  // User location marker
+  // Animated user location marker
   useEffect(() => {
     if (!map || !mapReady) return;
 
-    const userIcon = L.divIcon({
-      className: 'user-marker',
-      html: `<div style="width: 16px; height: 16px; background: hsl(217, 91%, 60%); border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>`,
-      iconSize: [16, 16],
-      iconAnchor: [8, 8],
-    });
+    // Remove existing marker
+    if (userMarkerRef.current) {
+      userMarkerRef.current.remove();
+      userMarkerRef.current = null;
+    }
 
-    let marker: L.Marker | null = null;
     if (userLocation) {
-      marker = L.marker(userLocation, { icon: userIcon }).addTo(map);
+      const userIcon = L.divIcon({
+        className: 'user-marker-wrapper',
+        html: createUserMarkerHTML(isJourneyActive),
+        iconSize: [40, 40],
+        iconAnchor: [20, 20],
+      });
+
+      userMarkerRef.current = L.marker(userLocation, { 
+        icon: userIcon,
+        zIndexOffset: 1000, // Keep on top
+      }).addTo(map);
     }
 
     return () => {
-      if (marker) marker.remove();
+      if (userMarkerRef.current) {
+        userMarkerRef.current.remove();
+        userMarkerRef.current = null;
+      }
     };
-  }, [map, mapReady, userLocation]);
+  }, [map, mapReady, userLocation, isJourneyActive]);
+
+  // Location trail during active journey
+  useEffect(() => {
+    if (!map || !mapReady) return;
+
+    // Clear existing trail
+    trailLayerRef.current.forEach(layer => layer.remove());
+    trailLayerRef.current = [];
+
+    if (locationTrail.length > 1 && isJourneyActive) {
+      // Gradient trail effect - older segments are more transparent
+      const segmentCount = Math.min(locationTrail.length - 1, 20);
+      
+      for (let i = Math.max(0, locationTrail.length - segmentCount - 1); i < locationTrail.length - 1; i++) {
+        const opacity = 0.2 + (0.6 * (i - (locationTrail.length - segmentCount - 1)) / segmentCount);
+        const segment = [locationTrail[i], locationTrail[i + 1]];
+        
+        // Glow layer
+        const glowLine = L.polyline(segment, {
+          color: 'hsl(38, 92%, 55%)',
+          opacity: opacity * 0.4,
+          weight: 12,
+          lineCap: 'round',
+          lineJoin: 'round',
+        }).addTo(map);
+        trailLayerRef.current.push(glowLine);
+
+        // Main trail line
+        const mainLine = L.polyline(segment, {
+          color: 'hsl(38, 92%, 55%)',
+          opacity: opacity,
+          weight: 4,
+          lineCap: 'round',
+          lineJoin: 'round',
+          className: 'location-trail',
+        }).addTo(map);
+        trailLayerRef.current.push(mainLine);
+      }
+    }
+
+    return () => {
+      trailLayerRef.current.forEach(layer => layer.remove());
+      trailLayerRef.current = [];
+    };
+  }, [map, mapReady, locationTrail, isJourneyActive]);
 
   // Destination marker
   useEffect(() => {
@@ -96,11 +265,41 @@ export default function MapView({
 
     const destIcon = L.divIcon({
       className: 'destination-marker',
-      html: `<div style="width: 20px; height: 20px; background: hsl(0, 84%, 60%); border-radius: 50%; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3); display: flex; align-items: center; justify-content: center;">
-        <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
-      </div>`,
-      iconSize: [20, 20],
-      iconAnchor: [10, 10],
+      html: `
+        <div style="position: relative; width: 32px; height: 32px;">
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 32px;
+            height: 32px;
+            background: hsl(0, 72%, 63%);
+            opacity: 0.2;
+            border-radius: 50%;
+            animation: user-pulse 2s ease-out infinite;
+          "></div>
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 22px;
+            height: 22px;
+            background: hsl(0, 72%, 63%);
+            border-radius: 50%;
+            border: 3px solid white;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+          ">
+            <div style="width: 8px; height: 8px; background: white; border-radius: 50%;"></div>
+          </div>
+        </div>
+      `,
+      iconSize: [32, 32],
+      iconAnchor: [16, 16],
     });
 
     let marker: L.Marker | null = null;
