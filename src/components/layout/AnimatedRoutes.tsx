@@ -7,6 +7,7 @@ import JourneyHistory from '@/pages/JourneyHistory';
 import Settings from '@/pages/Settings';
 import NotificationSettings from '@/pages/NotificationSettings';
 import GeofenceSettings from '@/pages/GeofenceSettings';
+import GeofenceHistory from '@/pages/GeofenceHistory';
 import TrackLocation from '@/pages/TrackLocation';
 import NotFound from '@/pages/NotFound';
 
@@ -57,6 +58,7 @@ export default function AnimatedRoutes() {
           <Route path="/settings" element={<Settings />} />
           <Route path="/settings/notifications" element={<NotificationSettings />} />
           <Route path="/settings/geofence" element={<GeofenceSettings />} />
+          <Route path="/geofence-history" element={<GeofenceHistory />} />
           <Route path="/track/:token" element={<TrackLocation />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />

@@ -96,8 +96,31 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
     fetchGeofencedLocations();
   }, [fetchGeofencedLocations]);
 
+  // Log geofence event to history
+  const logGeofenceEvent = useCallback(async (
+    locationId: string,
+    eventType: 'entered' | 'exited',
+    lat: number,
+    lng: number
+  ) => {
+    if (!user) return;
+
+    try {
+      await supabase.from('geofence_events').insert({
+        user_id: user.id,
+        location_id: locationId,
+        event_type: eventType,
+        lat,
+        lng,
+      });
+    } catch (error) {
+      console.error('Error logging geofence event:', error);
+    }
+  }, [user]);
+
   // Notify emergency contacts about geofence event
   const notifyContacts = useCallback(async (
+    locationId: string,
     locationName: string,
     eventType: 'entered' | 'exited',
     lat: number,
@@ -106,13 +129,38 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
     if (!user) return;
 
     try {
-      const { data: contacts } = await supabase
+      // Get contact zone rules for this location
+      const { data: rules } = await supabase
+        .from('contact_zone_rules')
+        .select('contact_id, notify_on_enter, notify_on_exit')
+        .eq('user_id', user.id)
+        .eq('location_id', locationId);
+
+      // Get all contacts
+      const { data: allContacts } = await supabase
         .from('emergency_contacts')
         .select('id, name, phone, email, notify_sms, notify_email')
         .eq('user_id', user.id)
         .order('priority', { ascending: true });
 
-      if (!contacts || contacts.length === 0) return;
+      if (!allContacts || allContacts.length === 0) return;
+
+      // Filter contacts based on rules
+      let contactsToNotify = allContacts;
+
+      if (rules && rules.length > 0) {
+        // If rules exist, only notify contacts with matching rules
+        const ruleMap = new Map(rules.map(r => [r.contact_id, r]));
+        contactsToNotify = allContacts.filter(contact => {
+          const rule = ruleMap.get(contact.id);
+          if (!rule) return false; // No rule means no notification for this location
+          if (eventType === 'entered' && !rule.notify_on_enter) return false;
+          if (eventType === 'exited' && !rule.notify_on_exit) return false;
+          return true;
+        });
+      }
+
+      if (contactsToNotify.length === 0) return;
 
       // Get user profile for name
       const { data: profile } = await supabase
@@ -135,14 +183,51 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
           lng,
           location_name: locationName,
           event_type: eventType,
+          contact_ids: contactsToNotify.map(c => c.id),
         },
       });
 
-      console.log(`Geofence notification sent: ${message}`);
+      console.log(`Geofence notification sent to ${contactsToNotify.length} contacts: ${message}`);
     } catch (error) {
       console.error('Error sending geofence notification:', error);
     }
   }, [user]);
+
+  // Simulate entering or leaving a zone (test mode)
+  const simulateGeofenceEvent = useCallback(async (
+    locationId: string,
+    eventType: 'entered' | 'exited'
+  ) => {
+    const location = geofencedLocations.find(l => l.id === locationId);
+    if (!location) return;
+
+    // Log the event
+    await logGeofenceEvent(locationId, eventType, location.lat, location.lng);
+
+    // Show notification
+    const title = eventType === 'entered' 
+      ? `Arrived at ${location.name}` 
+      : `Left ${location.name}`;
+    
+    showLocalNotification(title, 'Test simulation - contacts notified.', {
+      tag: `geofence-test-${locationId}`,
+    });
+    
+    toast({
+      title: `[Test] ${title}`,
+      description: 'Simulated event logged. Contacts notified.',
+    });
+
+    // Notify contacts
+    await notifyContacts(locationId, location.name, eventType, location.lat, location.lng);
+
+    // Update active zones state
+    if (eventType === 'entered') {
+      setActiveZones(prev => [...prev.filter(id => id !== locationId), locationId]);
+    } else {
+      setActiveZones(prev => prev.filter(id => id !== locationId));
+    }
+  }, [geofencedLocations, logGeofenceEvent, notifyContacts, showLocalNotification, toast]);
 
   // Check geofences
   const checkGeofences = useCallback(() => {
@@ -177,6 +262,7 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
 
       if (!prevState.isInside && isInside && location.notify_on_enter) {
         // Entered zone
+        logGeofenceEvent(location.id, 'entered', userLat, userLng);
         showLocalNotification(`Arrived at ${location.name}`, 'Your contacts have been notified.', {
           tag: `geofence-${location.id}`,
         });
@@ -184,10 +270,11 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
           title: `Arrived at ${location.name}`,
           description: 'Your emergency contacts have been notified.',
         });
-        notifyContacts(location.name, 'entered', userLat, userLng);
+        notifyContacts(location.id, location.name, 'entered', userLat, userLng);
         lastNotificationRef.current.set(location.id, now);
       } else if (prevState.isInside && !isInside && location.notify_on_exit) {
         // Exited zone
+        logGeofenceEvent(location.id, 'exited', userLat, userLng);
         showLocalNotification(`Left ${location.name}`, 'Your contacts have been notified.', {
           tag: `geofence-${location.id}`,
         });
@@ -195,7 +282,7 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
           title: `Left ${location.name}`,
           description: 'Your emergency contacts have been notified.',
         });
-        notifyContacts(location.name, 'exited', userLat, userLng);
+        notifyContacts(location.id, location.name, 'exited', userLat, userLng);
         lastNotificationRef.current.set(location.id, now);
       }
 
@@ -203,12 +290,14 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
     }
 
     setActiveZones(currentlyInside);
-  }, [enabled, userLat, userLng, geofencedLocations, showLocalNotification, toast, notifyContacts]);
+  }, [enabled, userLat, userLng, geofencedLocations, showLocalNotification, toast, notifyContacts, logGeofenceEvent]);
 
   return {
     geofencedLocations,
     activeZones,
     loading,
     refresh: fetchGeofencedLocations,
+    simulateGeofenceEvent,
+    checkGeofences,
   };
 }
