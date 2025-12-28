@@ -72,27 +72,32 @@ export default function Settings() {
 
       <main className="container max-w-lg mx-auto px-4 py-6 space-y-6">
         {/* Profile Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <User className="w-5 h-5" />
+        <Card className="settings-section bg-card/80 border-border/50 backdrop-blur-sm 
+                         animate-fade-in-up opacity-0 stagger-1">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 font-display">
+              <div className="p-2 rounded-lg bg-primary/10 group-hover:bg-primary/20 transition-colors">
+                <User className="w-5 h-5 text-primary" />
+              </div>
               Profile
             </CardTitle>
-            <CardDescription>Your personal information</CardDescription>
+            <CardDescription className="pl-12">Your personal information</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="fullName">Full Name</Label>
+          <CardContent className="space-y-5">
+            <div className="space-y-2 group">
+              <Label htmlFor="fullName" className="text-sm font-medium">Full Name</Label>
               <Input
                 id="fullName"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 placeholder="Your name"
+                className="input-glow transition-all duration-300 bg-input/50 
+                           hover:bg-input/70 focus:bg-input"
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone" className="flex items-center gap-2">
-                <Phone className="w-4 h-4" />
+            <div className="space-y-2 group">
+              <Label htmlFor="phone" className="flex items-center gap-2 text-sm font-medium">
+                <Phone className="w-4 h-4 text-muted-foreground icon-hover" />
                 Phone Number
               </Label>
               <Input
@@ -101,25 +106,33 @@ export default function Settings() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+1 234 567 8900"
+                className="input-glow transition-all duration-300 bg-input/50 
+                           hover:bg-input/70 focus:bg-input"
               />
             </div>
           </CardContent>
         </Card>
 
         {/* Journey Defaults */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Clock className="w-5 h-5" />
+        <Card className="settings-section bg-card/80 border-border/50 backdrop-blur-sm 
+                         animate-fade-in-up opacity-0 stagger-2">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 font-display">
+              <div className="p-2 rounded-lg bg-fastest/10 transition-colors">
+                <Clock className="w-5 h-5 text-fastest" />
+              </div>
               Journey Defaults
             </CardTitle>
-            <CardDescription>Default settings for new journeys</CardDescription>
+            <CardDescription className="pl-12">Default settings for new journeys</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="space-y-4">
+          <CardContent className="space-y-8">
+            <div className="space-y-4 group">
               <div className="flex items-center justify-between">
-                <Label>Check-in Interval</Label>
-                <span className="text-sm text-muted-foreground">{checkinInterval} minutes</span>
+                <Label className="text-sm font-medium">Check-in Interval</Label>
+                <span className="text-sm text-primary font-medium tabular-nums 
+                                 px-2 py-0.5 rounded bg-primary/10">
+                  {checkinInterval} min
+                </span>
               </div>
               <Slider
                 value={[checkinInterval]}
@@ -129,16 +142,22 @@ export default function Settings() {
                 step={1}
                 className="w-full"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 How often we'll ask you to confirm you're safe during a journey.
               </p>
             </div>
 
-            <div className="space-y-4">
+            <div className="space-y-4 group">
               <div className="flex items-center justify-between">
-                <Label>Safety Preference</Label>
-                <span className="text-sm text-muted-foreground">
-                  {safetyWeight < 0.3 ? 'Faster routes' : safetyWeight > 0.7 ? 'Safer routes' : 'Balanced'}
+                <Label className="text-sm font-medium">Safety Preference</Label>
+                <span className={`text-sm font-medium px-2 py-0.5 rounded transition-colors
+                  ${safetyWeight < 0.3 
+                    ? 'text-fastest bg-fastest/10' 
+                    : safetyWeight > 0.7 
+                      ? 'text-safe bg-safe/10' 
+                      : 'text-balanced bg-balanced/10'
+                  }`}>
+                  {safetyWeight < 0.3 ? 'Faster' : safetyWeight > 0.7 ? 'Safer' : 'Balanced'}
                 </span>
               </div>
               <Slider
@@ -150,26 +169,35 @@ export default function Settings() {
                 className="w-full"
               />
               <div className="flex justify-between text-xs text-muted-foreground">
-                <span>Faster</span>
-                <span>Safer</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-fastest" />
+                  Faster
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2 h-2 rounded-full bg-safe" />
+                  Safer
+                </span>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Safety Section */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5 text-safe" />
+        <Card className="settings-section bg-card/80 border-border/50 backdrop-blur-sm 
+                         animate-fade-in-up opacity-0 stagger-3">
+          <CardHeader className="pb-4">
+            <CardTitle className="flex items-center gap-3 font-display">
+              <div className="p-2 rounded-lg bg-safe/10 transition-colors">
+                <Shield className="w-5 h-5 text-safe" />
+              </div>
               Safety
             </CardTitle>
-            <CardDescription>Emergency and safety settings</CardDescription>
+            <CardDescription className="pl-12">Emergency and safety settings</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="safeWord" className="flex items-center gap-2">
-                <KeyRound className="w-4 h-4" />
+            <div className="space-y-2 group">
+              <Label htmlFor="safeWord" className="flex items-center gap-2 text-sm font-medium">
+                <KeyRound className="w-4 h-4 text-muted-foreground icon-hover" />
                 Safe Word
               </Label>
               <Input
@@ -178,8 +206,10 @@ export default function Settings() {
                 value={safeWord}
                 onChange={(e) => setSafeWord(e.target.value)}
                 placeholder="Enter a secret safe word"
+                className="input-glow transition-all duration-300 bg-input/50 
+                           hover:bg-input/70 focus:bg-input"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground leading-relaxed">
                 A secret word you can use to silently trigger an alert if you're in danger.
               </p>
             </div>
@@ -187,11 +217,16 @@ export default function Settings() {
         </Card>
 
         {/* Save Button */}
-        <Button onClick={handleSave} className="w-full" disabled={saving}>
+        <Button 
+          onClick={handleSave} 
+          className="w-full h-12 font-display text-base animate-fade-in-up opacity-0 stagger-4
+                     hover:shadow-glow-md transition-all duration-300" 
+          disabled={saving}
+        >
           {saving ? (
-            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
           ) : (
-            <Save className="w-4 h-4 mr-2" />
+            <Save className="w-5 h-5 mr-2" />
           )}
           Save Settings
         </Button>

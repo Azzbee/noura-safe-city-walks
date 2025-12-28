@@ -113,18 +113,54 @@ export default function MapView({
     };
   }, [map, mapReady, destination]);
 
-  // Routes
+  // Routes with glowing animated trails
   useEffect(() => {
     if (!map || !mapReady) return;
 
     const polylines: L.Polyline[] = [];
+    
     routes.forEach((route) => {
-      const polyline = L.polyline(route.geometry, {
+      // Outer glow layer
+      const glowOuter = L.polyline(route.geometry, {
         color: route.color,
-        opacity: route.opacity ?? 0.8,
-        weight: route.weight ?? 5,
+        opacity: 0.15,
+        weight: (route.weight ?? 5) + 12,
+        lineCap: 'round',
+        lineJoin: 'round',
       }).addTo(map);
-      polylines.push(polyline);
+      polylines.push(glowOuter);
+
+      // Middle glow layer
+      const glowMiddle = L.polyline(route.geometry, {
+        color: route.color,
+        opacity: 0.3,
+        weight: (route.weight ?? 5) + 6,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      polylines.push(glowMiddle);
+
+      // Main route line
+      const mainLine = L.polyline(route.geometry, {
+        color: route.color,
+        opacity: route.opacity ?? 0.9,
+        weight: route.weight ?? 5,
+        lineCap: 'round',
+        lineJoin: 'round',
+      }).addTo(map);
+      polylines.push(mainLine);
+
+      // Animated dashed overlay for active routes
+      const animatedDash = L.polyline(route.geometry, {
+        color: '#ffffff',
+        opacity: 0.4,
+        weight: 2,
+        dashArray: '8, 16',
+        lineCap: 'round',
+        lineJoin: 'round',
+        className: 'animated-route',
+      }).addTo(map);
+      polylines.push(animatedDash);
     });
 
     return () => {
