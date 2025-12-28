@@ -1,4 +1,6 @@
 import { serve } from "https://deno.land/std@0.190.0/http/server.ts";
+
+// Supports: sos, missed_checkin, safe_word, manual, geofence
 import { Resend } from "https://esm.sh/resend@2.0.0";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 import Twilio from "https://esm.sh/twilio@4.19.0";
@@ -17,11 +19,16 @@ const corsHeaders = {
 
 interface NotificationRequest {
   user_id: string;
-  alert_type: "sos" | "missed_checkin" | "safe_word";
+  alert_type: "sos" | "missed_checkin" | "safe_word" | "geofence";
   journey_id?: string;
   location?: { lat: number; lng: number };
   message?: string;
   tracking_url?: string;
+  // Geofence specific
+  lat?: number;
+  lng?: number;
+  location_name?: string;
+  event_type?: "entered" | "exited";
 }
 
 // Send SMS via Twilio
@@ -59,9 +66,9 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    const { user_id, alert_type, journey_id, location, message, tracking_url }: NotificationRequest = await req.json();
+    const { user_id, alert_type, journey_id, location, message, tracking_url, lat, lng, location_name, event_type }: NotificationRequest = await req.json();
 
-    console.log("Notification request:", { user_id, alert_type, journey_id, location, tracking_url });
+    console.log("Notification request:", { user_id, alert_type, journey_id, location, tracking_url, location_name, event_type });
 
     // Fetch user profile
     const { data: profile } = await supabase
@@ -108,29 +115,44 @@ serve(async (req) => {
       }
     }
 
-    // Build alert messages
-    const alertMessages = {
+    // Build alert messages based on type
+    const geofenceAction = event_type === 'entered' ? 'arrived at' : 'left';
+    const geofenceMessage = location_name 
+      ? `📍 ${userName} ${geofenceAction} "${location_name}"`
+      : `📍 ${userName} ${geofenceAction} a safe zone`;
+
+    const alertMessages: Record<string, string> = {
       sos: `🆘 EMERGENCY: ${userName} triggered SOS!`,
       missed_checkin: `⚠️ ALERT: ${userName} missed safety check-in.`,
       safe_word: `🚨 URGENT: ${userName} used safe word.`,
+      geofence: geofenceMessage,
     };
 
-    const alertSubjects = {
+    const alertSubjects: Record<string, string> = {
       sos: `🆘 SOS Alert from ${userName}`,
       missed_checkin: `⚠️ Missed Check-in Alert for ${userName}`,
       safe_word: `🚨 Safe Word Alert from ${userName}`,
+      geofence: `📍 Location Update: ${userName} ${geofenceAction} ${location_name || 'a safe zone'}`,
     };
 
+    // Determine location for geofence events
+    const effectiveLocation = location || (lat && lng ? { lat, lng } : null);
+    
     // SMS message with tracking URL
-    const locationLink = location 
-      ? `\nLocation: https://maps.google.com/?q=${location.lat},${location.lng}` 
+    const locationLink = effectiveLocation 
+      ? `\nLocation: https://maps.google.com/?q=${effectiveLocation.lat},${effectiveLocation.lng}` 
       : "";
     
     const trackingLink = tracking_url 
       ? `\n📍 LIVE TRACKING: ${tracking_url}` 
       : "";
     
-    const smsMessage = `${alertMessages[alert_type]}${journeyInfo ? `\n${journeyInfo}` : ""}${locationLink}${trackingLink}\n\nPlease contact them NOW. - Noura Safety`;
+    const isEmergency = alert_type !== 'geofence';
+    const actionMessage = isEmergency 
+      ? "\n\nPlease contact them NOW. - Noura Safety"
+      : "\n\n- Noura Safety";
+    
+    const smsMessage = `${alertMessages[alert_type]}${journeyInfo ? `\n${journeyInfo}` : ""}${locationLink}${trackingLink}${actionMessage}`;
 
     // Send notifications to each contact
     const notificationResults: Array<{
