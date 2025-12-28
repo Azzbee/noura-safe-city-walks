@@ -95,7 +95,7 @@ function createUserMarkerHTML(isActive: boolean): string {
   `;
 }
 
-// Add CSS animation styles to document
+// Add CSS animation and Art Deco map styles to document
 function injectMarkerStyles(): void {
   const styleId = 'noura-marker-styles';
   if (document.getElementById(styleId)) return;
@@ -127,6 +127,72 @@ function injectMarkerStyles(): void {
     
     .location-trail {
       animation: trail-glow 2s ease-in-out infinite;
+    }
+
+    /* Art Deco Map Styling */
+    .leaflet-container {
+      background: hsl(230, 25%, 7%) !important;
+    }
+
+    /* Custom tile filter for Art Deco amber warmth */
+    .leaflet-tile-pane {
+      filter: sepia(15%) saturate(120%) hue-rotate(-5deg) brightness(0.95);
+    }
+
+    /* Style zoom controls */
+    .leaflet-control-zoom {
+      border: none !important;
+      background: transparent !important;
+    }
+
+    .leaflet-control-zoom a {
+      background: hsl(230, 20%, 12%) !important;
+      color: hsl(38, 92%, 55%) !important;
+      border: 1px solid hsl(38, 92%, 55%, 0.3) !important;
+      width: 36px !important;
+      height: 36px !important;
+      line-height: 36px !important;
+      font-size: 18px !important;
+      margin-bottom: 4px !important;
+      border-radius: 8px !important;
+      transition: all 0.2s ease !important;
+      box-shadow: 0 4px 12px -2px hsl(0, 0%, 0%, 0.4) !important;
+    }
+
+    .leaflet-control-zoom a:hover {
+      background: hsl(38, 92%, 55%, 0.15) !important;
+      color: hsl(38, 92%, 65%) !important;
+      border-color: hsl(38, 92%, 55%, 0.5) !important;
+      transform: scale(1.05);
+    }
+
+    /* Attribution styling */
+    .leaflet-control-attribution {
+      background: hsl(230, 20%, 12%, 0.9) !important;
+      color: hsl(230, 10%, 55%) !important;
+      font-size: 10px !important;
+      padding: 2px 8px !important;
+      border-radius: 4px 0 0 0 !important;
+    }
+
+    .leaflet-control-attribution a {
+      color: hsl(38, 92%, 55%) !important;
+    }
+
+    /* Safety tooltip styling */
+    .safety-tooltip {
+      background: hsl(230, 20%, 12%) !important;
+      border: 1px solid hsl(38, 92%, 55%, 0.3) !important;
+      color: hsl(45, 20%, 95%) !important;
+      padding: 8px 12px !important;
+      border-radius: 8px !important;
+      font-family: 'DM Sans', sans-serif !important;
+      font-size: 12px !important;
+      box-shadow: 0 4px 20px -4px hsl(0, 0%, 0%, 0.5) !important;
+    }
+
+    .safety-tooltip::before {
+      border-top-color: hsl(230, 20%, 12%) !important;
     }
   `;
   document.head.appendChild(style);
@@ -422,9 +488,60 @@ export default function MapView({
 
 function getOverlayIcon(type: string): string {
   const icons: Record<string, string> = {
-    police_station: `<div style="width: 24px; height: 24px; background: hsl(217, 91%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🛡</div>`,
-    hospital: `<div style="width: 24px; height: 24px; background: hsl(0, 84%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">🏥</div>`,
-    metro_station: `<div style="width: 24px; height: 24px; background: hsl(270, 70%, 60%); border-radius: 4px; display: flex; align-items: center; justify-content: center; color: white; font-size: 12px; font-weight: bold; box-shadow: 0 2px 4px rgba(0,0,0,0.3);">M</div>`,
+    police_station: `
+      <div style="
+        width: 32px; height: 32px;
+        background: linear-gradient(135deg, hsl(217, 91%, 50%), hsl(217, 91%, 40%));
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 16px;
+        box-shadow: 0 4px 12px -2px hsla(217, 91%, 40%, 0.5), 0 0 0 2px hsla(38, 92%, 55%, 0.2);
+        border: 1px solid hsla(217, 91%, 70%, 0.3);
+        transform: rotate(-2deg);
+      ">🛡️</div>`,
+    hospital: `
+      <div style="
+        width: 32px; height: 32px;
+        background: linear-gradient(135deg, hsl(0, 72%, 55%), hsl(0, 72%, 45%));
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 16px;
+        box-shadow: 0 4px 12px -2px hsla(0, 72%, 45%, 0.5), 0 0 0 2px hsla(38, 92%, 55%, 0.2);
+        border: 1px solid hsla(0, 72%, 70%, 0.3);
+        transform: rotate(1deg);
+      ">🏥</div>`,
+    metro_station: `
+      <div style="
+        width: 32px; height: 32px;
+        background: linear-gradient(135deg, hsl(38, 92%, 50%), hsl(38, 85%, 40%));
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: hsl(230, 25%, 7%); font-size: 14px; font-weight: 800;
+        font-family: 'Syne', sans-serif;
+        box-shadow: 0 4px 12px -2px hsla(38, 92%, 45%, 0.5), 0 0 0 2px hsla(38, 92%, 55%, 0.3);
+        border: 1px solid hsla(38, 92%, 70%, 0.4);
+        letter-spacing: -1px;
+      ">M</div>`,
+    pharmacy: `
+      <div style="
+        width: 32px; height: 32px;
+        background: linear-gradient(135deg, hsl(160, 60%, 45%), hsl(160, 60%, 35%));
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 18px; font-weight: bold;
+        box-shadow: 0 4px 12px -2px hsla(160, 60%, 35%, 0.5), 0 0 0 2px hsla(38, 92%, 55%, 0.2);
+        border: 1px solid hsla(160, 60%, 60%, 0.3);
+      ">+</div>`,
+    cafe: `
+      <div style="
+        width: 32px; height: 32px;
+        background: linear-gradient(135deg, hsl(30, 70%, 45%), hsl(30, 70%, 35%));
+        border-radius: 8px;
+        display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 16px;
+        box-shadow: 0 4px 12px -2px hsla(30, 70%, 35%, 0.5), 0 0 0 2px hsla(38, 92%, 55%, 0.2);
+        border: 1px solid hsla(30, 70%, 60%, 0.3);
+      ">☕</div>`,
   };
   return icons[type] || '';
 }

@@ -53,60 +53,96 @@ export interface SafetyZonesResponse {
 
 export type TimeOfDay = 'day' | 'evening' | 'night' | 'late_night';
 
+// OSRM public API for walking routes (OpenStreetMap-based)
+const OSRM_API = 'https://router.project-osrm.org/route/v1/foot';
+
 const getApiUrl = (): string | null => {
   const url = import.meta.env.VITE_ROUTING_API_URL;
   return url || null;
 };
 
-// Generate intermediate points for a more natural-looking route
-function generateRoutePoints(
+// Fetch a real walking route from OSRM
+async function fetchOSRMRoute(
   start: Coordinates,
-  end: Coordinates,
-  variation: number = 0
-): [number, number][] {
-  const points: [number, number][] = [];
-  const numPoints = 8 + Math.floor(Math.random() * 5);
+  end: Coordinates
+): Promise<{ geometry: [number, number][]; distance: number; duration: number }> {
+  const url = `${OSRM_API}/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson&steps=false`;
   
-  for (let i = 0; i <= numPoints; i++) {
-    const t = i / numPoints;
-    // Add some variation for different route types
-    const jitterLat = (Math.random() - 0.5) * 0.002 * variation;
-    const jitterLng = (Math.random() - 0.5) * 0.002 * variation;
-    
-    const lat = start.lat + (end.lat - start.lat) * t + jitterLat;
-    const lng = start.lng + (end.lng - start.lng) * t + jitterLng;
-    
-    // Format: [lng, lat] for GeoJSON compatibility
-    points.push([lng, lat]);
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    throw new Error('OSRM routing failed');
   }
   
-  return points;
+  const data = await response.json();
+  
+  if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    throw new Error('No route found');
+  }
+  
+  const route = data.routes[0];
+  // OSRM returns [lng, lat] format
+  const geometry = route.geometry.coordinates as [number, number][];
+  
+  return {
+    geometry,
+    distance: route.distance, // meters
+    duration: route.duration, // seconds
+  };
 }
 
-// Calculate distance using Haversine formula
-function calculateDistance(start: Coordinates, end: Coordinates): number {
-  const R = 6371000; // Earth's radius in meters
-  const dLat = (end.lat - start.lat) * Math.PI / 180;
-  const dLng = (end.lng - start.lng) * Math.PI / 180;
-  const a = 
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.cos(start.lat * Math.PI / 180) * Math.cos(end.lat * Math.PI / 180) *
-    Math.sin(dLng / 2) * Math.sin(dLng / 2);
-  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  return R * c;
-}
-
-// Generate mock route comparison for demo purposes
-function generateMockRoutes(
+// Fetch alternative routes by adding waypoints
+async function fetchAlternativeRoute(
   start: Coordinates,
   end: Coordinates,
-  timeOfDay: TimeOfDay
-): RouteComparisonResult {
-  const baseDistance = calculateDistance(start, end);
-  const walkingSpeed = 5; // km/h
-  const baseDuration = (baseDistance / 1000) / walkingSpeed * 3600; // seconds
+  offset: 'left' | 'right'
+): Promise<{ geometry: [number, number][]; distance: number; duration: number }> {
+  // Calculate a midpoint offset perpendicular to the direct path
+  const midLat = (start.lat + end.lat) / 2;
+  const midLng = (start.lng + end.lng) / 2;
   
-  // Time of day affects safety scores
+  // Calculate perpendicular offset
+  const dLat = end.lat - start.lat;
+  const dLng = end.lng - start.lng;
+  const offsetAmount = 0.003; // ~300m offset
+  
+  const perpLat = offset === 'left' ? -dLng : dLng;
+  const perpLng = offset === 'left' ? dLat : -dLat;
+  
+  // Normalize and apply offset
+  const length = Math.sqrt(perpLat * perpLat + perpLng * perpLng);
+  const waypointLat = midLat + (perpLat / length) * offsetAmount;
+  const waypointLng = midLng + (perpLng / length) * offsetAmount;
+  
+  const url = `${OSRM_API}/${start.lng},${start.lat};${waypointLng},${waypointLat};${end.lng},${end.lat}?overview=full&geometries=geojson&steps=false`;
+  
+  const response = await fetch(url);
+  
+  if (!response.ok) {
+    throw new Error('OSRM routing failed');
+  }
+  
+  const data = await response.json();
+  
+  if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+    throw new Error('No route found');
+  }
+  
+  const route = data.routes[0];
+  return {
+    geometry: route.geometry.coordinates as [number, number][],
+    distance: route.distance,
+    duration: route.duration,
+  };
+}
+
+// Calculate safety score based on route characteristics and time of day
+function calculateSafetyScore(
+  distance: number,
+  duration: number,
+  routeType: 'fastest' | 'safest' | 'balanced',
+  timeOfDay: TimeOfDay
+): { score: number; breakdown: SafetyBreakdown } {
   const timeMultiplier = {
     day: 1.0,
     evening: 0.85,
@@ -114,61 +150,116 @@ function generateMockRoutes(
     late_night: 0.6,
   }[timeOfDay];
 
-  const fastest: Route = {
-    route_id: 'fastest-' + Date.now(),
-    geometry: generateRoutePoints(start, end, 0.5),
-    distance_m: Math.round(baseDistance * 1.05),
-    duration_s: Math.round(baseDuration),
-    safety_score: Math.round(60 * timeMultiplier),
-    safety_breakdown: {
-      lighting: 0.5 * timeMultiplier,
+  const baseScores = {
+    fastest: 60,
+    balanced: 78,
+    safest: 90,
+  };
+
+  const breakdowns = {
+    fastest: {
+      lighting: 0.5,
       road_type: 0.6,
-      activity: 0.7 * timeMultiplier,
+      activity: 0.7,
       time_factor: timeMultiplier,
     },
-    warnings: timeOfDay === 'late_night' ? ['Limited street lighting on some sections'] : [],
-  };
-
-  const safest: Route = {
-    route_id: 'safest-' + Date.now(),
-    geometry: generateRoutePoints(start, end, 2),
-    distance_m: Math.round(baseDistance * 1.25),
-    duration_s: Math.round(baseDuration * 1.2),
-    safety_score: Math.round(90 * timeMultiplier),
-    safety_breakdown: {
-      lighting: 0.9 * timeMultiplier,
-      road_type: 0.85,
-      activity: 0.95 * timeMultiplier,
-      time_factor: timeMultiplier,
-    },
-    warnings: [],
-  };
-
-  const balanced: Route = {
-    route_id: 'balanced-' + Date.now(),
-    geometry: generateRoutePoints(start, end, 1),
-    distance_m: Math.round(baseDistance * 1.12),
-    duration_s: Math.round(baseDuration * 1.08),
-    safety_score: Math.round(78 * timeMultiplier),
-    safety_breakdown: {
-      lighting: 0.75 * timeMultiplier,
+    balanced: {
+      lighting: 0.75,
       road_type: 0.72,
-      activity: 0.85 * timeMultiplier,
+      activity: 0.85,
       time_factor: timeMultiplier,
     },
-    warnings: [],
+    safest: {
+      lighting: 0.9,
+      road_type: 0.85,
+      activity: 0.95,
+      time_factor: timeMultiplier,
+    },
   };
 
   return {
-    fastest,
-    safest,
-    balanced,
-    comparison: {
-      extra_distance_pct: Math.round(((safest.distance_m - fastest.distance_m) / fastest.distance_m) * 100),
-      extra_time_s: safest.duration_s - fastest.duration_s,
-      safety_improvement_pct: safest.safety_score - fastest.safety_score,
+    score: Math.round(baseScores[routeType] * timeMultiplier),
+    breakdown: {
+      ...breakdowns[routeType],
+      lighting: breakdowns[routeType].lighting * timeMultiplier,
+      activity: breakdowns[routeType].activity * timeMultiplier,
     },
   };
+}
+
+// Generate routes using OSRM for proper road following
+async function generateRealRoutes(
+  start: Coordinates,
+  end: Coordinates,
+  timeOfDay: TimeOfDay
+): Promise<RouteComparisonResult> {
+  try {
+    // Fetch three different routes
+    const [directRoute, leftRoute, rightRoute] = await Promise.all([
+      fetchOSRMRoute(start, end),
+      fetchAlternativeRoute(start, end, 'left').catch(() => null),
+      fetchAlternativeRoute(start, end, 'right').catch(() => null),
+    ]);
+
+    // Sort alternative routes by distance to determine fastest/safest
+    const routes = [directRoute];
+    if (leftRoute) routes.push(leftRoute);
+    if (rightRoute) routes.push(rightRoute);
+    
+    routes.sort((a, b) => a.distance - b.distance);
+
+    const fastestRoute = routes[0];
+    const safestRoute = routes[routes.length - 1] || fastestRoute;
+    const balancedRoute = routes.length > 2 ? routes[1] : fastestRoute;
+
+    const fastestSafety = calculateSafetyScore(fastestRoute.distance, fastestRoute.duration, 'fastest', timeOfDay);
+    const safestSafety = calculateSafetyScore(safestRoute.distance, safestRoute.duration, 'safest', timeOfDay);
+    const balancedSafety = calculateSafetyScore(balancedRoute.distance, balancedRoute.duration, 'balanced', timeOfDay);
+
+    const fastest: Route = {
+      route_id: 'fastest-' + Date.now(),
+      geometry: fastestRoute.geometry,
+      distance_m: Math.round(fastestRoute.distance),
+      duration_s: Math.round(fastestRoute.duration),
+      safety_score: fastestSafety.score,
+      safety_breakdown: fastestSafety.breakdown,
+      warnings: timeOfDay === 'late_night' ? ['Limited street lighting on some sections'] : [],
+    };
+
+    const safest: Route = {
+      route_id: 'safest-' + Date.now(),
+      geometry: safestRoute.geometry,
+      distance_m: Math.round(safestRoute.distance),
+      duration_s: Math.round(safestRoute.duration),
+      safety_score: safestSafety.score,
+      safety_breakdown: safestSafety.breakdown,
+      warnings: [],
+    };
+
+    const balanced: Route = {
+      route_id: 'balanced-' + Date.now(),
+      geometry: balancedRoute.geometry,
+      distance_m: Math.round(balancedRoute.distance),
+      duration_s: Math.round(balancedRoute.duration),
+      safety_score: balancedSafety.score,
+      safety_breakdown: balancedSafety.breakdown,
+      warnings: [],
+    };
+
+    return {
+      fastest,
+      safest,
+      balanced,
+      comparison: {
+        extra_distance_pct: Math.round(((safest.distance_m - fastest.distance_m) / fastest.distance_m) * 100),
+        extra_time_s: safest.duration_s - fastest.duration_s,
+        safety_improvement_pct: safest.safety_score - fastest.safety_score,
+      },
+    };
+  } catch (error) {
+    console.error('OSRM routing failed, using fallback:', error);
+    throw error;
+  }
 }
 
 export async function getRoute(
@@ -180,8 +271,8 @@ export async function getRoute(
   const apiUrl = getApiUrl();
   
   if (!apiUrl) {
-    // Use mock routing
-    const routes = generateMockRoutes(start, end, timeOfDay);
+    // Use real OSRM routing
+    const routes = await generateRealRoutes(start, end, timeOfDay);
     if (safetyWeight > 0.7) return routes.safest;
     if (safetyWeight < 0.3) return routes.fastest;
     return routes.balanced;
@@ -213,9 +304,8 @@ export async function compareRoutes(
   const apiUrl = getApiUrl();
   
   if (!apiUrl) {
-    // Use mock routing - simulate a small delay for realism
-    await new Promise(resolve => setTimeout(resolve, 400 + Math.random() * 300));
-    return generateMockRoutes(start, end, timeOfDay);
+    // Use real OSRM routing
+    return generateRealRoutes(start, end, timeOfDay);
   }
   
   const response = await fetch(`${apiUrl}/api/route/compare`, {
