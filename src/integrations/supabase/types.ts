@@ -364,6 +364,77 @@ export type Database = {
         }
         Relationships: []
       }
+      safety_reports: {
+        Row: {
+          created_at: string
+          description: string | null
+          expires_at: string | null
+          id: string
+          lat: number
+          lng: number
+          report_type: string
+          time_relevance: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          lat: number
+          lng: number
+          report_type: string
+          time_relevance?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          expires_at?: string | null
+          id?: string
+          lat?: number
+          lng?: number
+          report_type?: string
+          time_relevance?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      safety_votes: {
+        Row: {
+          created_at: string
+          id: string
+          report_id: string
+          user_id: string
+          vote: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          report_id: string
+          user_id: string
+          vote: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          report_id?: string
+          user_id?: string
+          vote?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "safety_votes_report_id_fkey"
+            columns: ["report_id"]
+            isOneToOne: false
+            referencedRelation: "safety_reports"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       saved_locations: {
         Row: {
           address: string | null
