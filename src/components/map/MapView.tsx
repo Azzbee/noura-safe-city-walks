@@ -124,6 +124,17 @@ function injectMarkerStyles(): void {
         filter: drop-shadow(0 0 8px currentColor);
       }
     }
+
+    @keyframes danger-pulse {
+      0%, 100% {
+        transform: scale(1);
+        box-shadow: 0 4px 12px -2px hsla(0, 84%, 40%, 0.6), 0 0 0 2px hsla(0, 84%, 55%, 0.3);
+      }
+      50% {
+        transform: scale(1.1);
+        box-shadow: 0 6px 16px -2px hsla(0, 84%, 40%, 0.8), 0 0 0 4px hsla(0, 84%, 55%, 0.2);
+      }
+    }
     
     .location-trail {
       animation: trail-glow 2s ease-in-out infinite;
@@ -193,6 +204,19 @@ function injectMarkerStyles(): void {
 
     .safety-tooltip::before {
       border-top-color: hsl(230, 20%, 12%) !important;
+    }
+
+    .danger-tooltip {
+      border-color: hsl(0, 84%, 55%, 0.5) !important;
+    }
+
+    /* Safety marker animations */
+    .safety-marker, .danger-marker {
+      transition: transform 0.2s ease;
+    }
+
+    .safety-marker:hover, .danger-marker:hover {
+      transform: scale(1.1);
     }
   `;
   document.head.appendChild(style);
@@ -433,32 +457,57 @@ export default function MapView({
     };
   }, [map, mapReady, routes]);
 
-  // Safety overlays
+  // Safety overlays with enhanced rendering
   useEffect(() => {
     if (!map || !mapReady) return;
 
-    const circles: L.Circle[] = [];
-    const markers: L.Marker[] = [];
+    const layers: L.Layer[] = [];
 
     safetyOverlays.forEach((overlay) => {
-      // Add circle for the zone
+      // Different rendering based on zone type
+      const isDangerZone = overlay.type === 'danger_zone' || overlay.type === 'caution_area';
+      
+      // Outer glow for danger zones
+      if (isDangerZone) {
+        const glowCircle = L.circle(overlay.center, {
+          radius: overlay.radius + 30,
+          color: overlay.color,
+          fillColor: overlay.color,
+          fillOpacity: overlay.fillOpacity * 0.3,
+          weight: 0,
+        }).addTo(map);
+        layers.push(glowCircle);
+      }
+
+      // Main circle
       const circle = L.circle(overlay.center, {
         radius: overlay.radius,
         color: overlay.color,
         fillColor: overlay.color,
         fillOpacity: overlay.fillOpacity,
-        weight: 1,
+        weight: isDangerZone ? 2 : 1,
+        dashArray: isDangerZone ? '8, 4' : undefined,
       }).addTo(map);
-      circles.push(circle);
+      
+      // Add tooltip for all zones
+      if (overlay.name) {
+        circle.bindTooltip(overlay.name, {
+          permanent: false,
+          direction: 'top',
+          className: 'safety-tooltip',
+        });
+      }
+      layers.push(circle);
 
-      // Add icon marker for POIs (police, hospital, metro)
-      if (['police_station', 'hospital', 'metro_station'].includes(overlay.type)) {
+      // Add icon markers for key POIs
+      const poiTypes = ['police_station', 'hospital', 'metro_station', 'pharmacy', 'open_24h'];
+      if (poiTypes.includes(overlay.type)) {
         const iconHtml = getOverlayIcon(overlay.type);
         const icon = L.divIcon({
           className: 'safety-marker',
           html: iconHtml,
-          iconSize: [24, 24],
-          iconAnchor: [12, 12],
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
         });
 
         const marker = L.marker(overlay.center, { icon })
@@ -468,13 +517,42 @@ export default function MapView({
             className: 'safety-tooltip',
           })
           .addTo(map);
-        markers.push(marker);
+        layers.push(marker);
+      }
+
+      // Warning icon for danger zones
+      if (overlay.type === 'danger_zone') {
+        const dangerIcon = L.divIcon({
+          className: 'danger-marker',
+          html: `
+            <div style="
+              width: 28px; height: 28px;
+              background: linear-gradient(135deg, hsl(0, 84%, 55%), hsl(0, 84%, 40%));
+              border-radius: 50%;
+              display: flex; align-items: center; justify-content: center;
+              color: white; font-size: 16px; font-weight: bold;
+              box-shadow: 0 4px 12px -2px hsla(0, 84%, 40%, 0.6), 0 0 0 2px hsla(0, 84%, 55%, 0.3);
+              border: 2px solid hsla(0, 0%, 100%, 0.3);
+              animation: danger-pulse 2s ease-in-out infinite;
+            ">⚠</div>
+          `,
+          iconSize: [28, 28],
+          iconAnchor: [14, 14],
+        });
+
+        const dangerMarker = L.marker(overlay.center, { icon: dangerIcon })
+          .bindTooltip(overlay.name || 'Danger Zone', {
+            permanent: false,
+            direction: 'top',
+            className: 'safety-tooltip danger-tooltip',
+          })
+          .addTo(map);
+        layers.push(dangerMarker);
       }
     });
 
     return () => {
-      circles.forEach((c) => c.remove());
-      markers.forEach((m) => m.remove());
+      layers.forEach((layer) => layer.remove());
     };
   }, [map, mapReady, safetyOverlays]);
 
