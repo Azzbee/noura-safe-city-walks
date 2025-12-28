@@ -181,16 +181,18 @@ export function useSafetyOverlays() {
   const convertToOverlays = (zones: SafetyZone[], filter: TimeFilter): SafetyOverlay[] => {
     // Filter zones based on time
     const filteredZones = zones.filter((zone) => {
+      const relevance = zone.time_relevance ?? 'always';
+      
       if (filter === 'all') return true;
-      if (!zone.time_relevance || zone.time_relevance === 'always') return true;
+      if (relevance === 'always') return true;
       
       switch (filter) {
         case 'day':
-          return zone.time_relevance === 'day_only' || zone.time_relevance === 'always';
+          return relevance === 'day_only';
         case 'night':
-          return zone.time_relevance === 'night_only' || zone.time_relevance === 'always';
+          return relevance === 'night_only' || relevance === 'late_night';
         case 'late_night':
-          return zone.time_relevance === 'late_night' || zone.time_relevance === 'night_only' || zone.time_relevance === 'always';
+          return relevance === 'late_night' || relevance === 'night_only';
         default:
           return true;
       }
