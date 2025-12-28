@@ -108,6 +108,51 @@ export type Database = {
           },
         ]
       }
+      contact_zone_rules: {
+        Row: {
+          contact_id: string
+          created_at: string
+          id: string
+          location_id: string
+          notify_on_enter: boolean
+          notify_on_exit: boolean
+          user_id: string
+        }
+        Insert: {
+          contact_id: string
+          created_at?: string
+          id?: string
+          location_id: string
+          notify_on_enter?: boolean
+          notify_on_exit?: boolean
+          user_id: string
+        }
+        Update: {
+          contact_id?: string
+          created_at?: string
+          id?: string
+          location_id?: string
+          notify_on_enter?: boolean
+          notify_on_exit?: boolean
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "contact_zone_rules_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "emergency_contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "contact_zone_rules_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "saved_locations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       emergency_contacts: {
         Row: {
           created_at: string
@@ -149,6 +194,44 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      geofence_events: {
+        Row: {
+          created_at: string
+          event_type: string
+          id: string
+          lat: number
+          lng: number
+          location_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_type: string
+          id?: string
+          lat: number
+          lng: number
+          location_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_type?: string
+          id?: string
+          lat?: number
+          lng?: number
+          location_id?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "geofence_events_location_id_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "saved_locations"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       journey_locations: {
         Row: {

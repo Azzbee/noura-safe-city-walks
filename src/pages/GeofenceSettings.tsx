@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useSavedLocations } from '@/hooks/useSavedLocations';
+import { useEmergencyContacts } from '@/hooks/useEmergencyContacts';
+import { useContactZoneRules } from '@/hooks/useContactZoneRules';
+import { useGeofencing } from '@/hooks/useGeofencing';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -11,7 +14,8 @@ import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ArrowLeft, Loader2, MapPin, Plus, Trash2, Bell, BellOff, Radar } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ArrowLeft, Loader2, MapPin, Plus, Trash2, Bell, BellOff, Radar, Users, History, TestTube, LogIn, LogOut } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface GeofenceLocation {
@@ -31,12 +35,17 @@ export default function GeofenceSettings() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { saveLocation, refresh } = useSavedLocations();
+  const { refresh } = useSavedLocations();
+  const { contacts } = useEmergencyContacts();
+  const { rules, upsertRule, deleteRule, getRulesForLocation } = useContactZoneRules();
+  const { simulateGeofenceEvent } = useGeofencing({ userLat: null, userLng: null, enabled: false });
   
   const [locations, setLocations] = useState<GeofenceLocation[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState<string | null>(null);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [contactsDialogOpen, setContactsDialogOpen] = useState<string | null>(null);
+  const [testDialogOpen, setTestDialogOpen] = useState<string | null>(null);
   
   // New location form state
   const [newName, setNewName] = useState('');
@@ -197,6 +206,27 @@ export default function GeofenceSettings() {
     }
   };
 
+  const handleContactRuleToggle = async (
+    locationId: string,
+    contactId: string,
+    field: 'notify_on_enter' | 'notify_on_exit',
+    currentValue: boolean
+  ) => {
+    const existingRule = getRulesForLocation(locationId).find(r => r.contact_id === contactId);
+    
+    await upsertRule(
+      contactId,
+      locationId,
+      field === 'notify_on_enter' ? !currentValue : (existingRule?.notify_on_enter ?? true),
+      field === 'notify_on_exit' ? !currentValue : (existingRule?.notify_on_exit ?? true)
+    );
+  };
+
+  const handleTestEvent = async (locationId: string, eventType: 'entered' | 'exited') => {
+    await simulateGeofenceEvent(locationId, eventType);
+    setTestDialogOpen(null);
+  };
+
   if (authLoading || loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -218,14 +248,19 @@ export default function GeofenceSettings() {
   return (
     <div className="min-h-screen bg-background">
       <header className="sticky top-0 z-10 bg-background/80 backdrop-blur border-b border-border">
-        <div className="container max-w-lg mx-auto px-4 py-4 flex items-center gap-3">
-          <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
-            <ArrowLeft className="w-5 h-5" />
-          </Button>
-          <div>
-            <h1 className="text-xl font-semibold">Safe Zones</h1>
-            <p className="text-sm text-muted-foreground">Geofencing & auto-notifications</p>
+        <div className="container max-w-lg mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Button variant="ghost" size="icon" onClick={() => navigate('/settings')}>
+              <ArrowLeft className="w-5 h-5" />
+            </Button>
+            <div>
+              <h1 className="text-xl font-semibold">Safe Zones</h1>
+              <p className="text-sm text-muted-foreground">Geofencing & auto-notifications</p>
+            </div>
           </div>
+          <Button variant="ghost" size="icon" onClick={() => navigate('/geofence-history')}>
+            <History className="w-5 h-5" />
+          </Button>
         </div>
       </header>
 
@@ -359,6 +394,104 @@ export default function GeofenceSettings() {
                         <span className="text-sm font-medium">On Exit</span>
                       </div>
                     </button>
+                  </div>
+
+                  {/* Per-Contact Rules & Test Mode */}
+                  <div className="flex gap-2 pt-2">
+                    {/* Per-Contact Rules Dialog */}
+                    <Dialog open={contactsDialogOpen === location.id} onOpenChange={(open) => setContactsDialogOpen(open ? location.id : null)}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <Users className="w-4 h-4 mr-2" />
+                          Contact Rules
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Contact Rules for {location.name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                          {contacts.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">
+                              No emergency contacts configured
+                            </p>
+                          ) : (
+                            <div className="space-y-3">
+                              <p className="text-sm text-muted-foreground">
+                                Choose which contacts get notified for this zone. If none are selected, all contacts will be notified.
+                              </p>
+                              {contacts.map((contact) => {
+                                const rule = getRulesForLocation(location.id).find(r => r.contact_id === contact.id);
+                                const hasRule = !!rule;
+                                
+                                return (
+                                  <div key={contact.id} className="flex items-center justify-between p-3 rounded-lg border bg-muted/30">
+                                    <div className="flex items-center gap-3">
+                                      <div className="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center text-sm font-medium">
+                                        {contact.name.charAt(0)}
+                                      </div>
+                                      <span className="font-medium">{contact.name}</span>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                      <label className="flex items-center gap-1.5 text-xs">
+                                        <Checkbox
+                                          checked={hasRule ? rule.notify_on_enter : false}
+                                          onCheckedChange={() => handleContactRuleToggle(location.id, contact.id, 'notify_on_enter', hasRule ? rule.notify_on_enter : false)}
+                                        />
+                                        <LogIn className="w-3 h-3" />
+                                      </label>
+                                      <label className="flex items-center gap-1.5 text-xs">
+                                        <Checkbox
+                                          checked={hasRule ? rule.notify_on_exit : false}
+                                          onCheckedChange={() => handleContactRuleToggle(location.id, contact.id, 'notify_on_exit', hasRule ? rule.notify_on_exit : false)}
+                                        />
+                                        <LogOut className="w-3 h-3" />
+                                      </label>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      </DialogContent>
+                    </Dialog>
+
+                    {/* Test Mode Dialog */}
+                    <Dialog open={testDialogOpen === location.id} onOpenChange={(open) => setTestDialogOpen(open ? location.id : null)}>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="flex-1">
+                          <TestTube className="w-4 h-4 mr-2" />
+                          Test
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent>
+                        <DialogHeader>
+                          <DialogTitle>Test Geofence for {location.name}</DialogTitle>
+                        </DialogHeader>
+                        <div className="space-y-4 pt-4">
+                          <p className="text-sm text-muted-foreground">
+                            Simulate entering or leaving this zone to test your notifications without physically moving.
+                          </p>
+                          <div className="flex gap-3">
+                            <Button
+                              className="flex-1 bg-safe hover:bg-safe/90"
+                              onClick={() => handleTestEvent(location.id, 'entered')}
+                            >
+                              <LogIn className="w-4 h-4 mr-2" />
+                              Simulate Enter
+                            </Button>
+                            <Button
+                              className="flex-1 bg-danger hover:bg-danger/90"
+                              onClick={() => handleTestEvent(location.id, 'exited')}
+                            >
+                              <LogOut className="w-4 h-4 mr-2" />
+                              Simulate Exit
+                            </Button>
+                          </div>
+                        </div>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               )}
