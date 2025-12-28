@@ -439,31 +439,43 @@ export type Database = {
         Row: {
           address: string | null
           created_at: string
+          geofence_enabled: boolean | null
+          geofence_radius_m: number | null
           id: string
           label: string | null
           lat: number
           lng: number
           name: string
+          notify_on_enter: boolean | null
+          notify_on_exit: boolean | null
           user_id: string
         }
         Insert: {
           address?: string | null
           created_at?: string
+          geofence_enabled?: boolean | null
+          geofence_radius_m?: number | null
           id?: string
           label?: string | null
           lat: number
           lng: number
           name: string
+          notify_on_enter?: boolean | null
+          notify_on_exit?: boolean | null
           user_id: string
         }
         Update: {
           address?: string | null
           created_at?: string
+          geofence_enabled?: boolean | null
+          geofence_radius_m?: number | null
           id?: string
           label?: string | null
           lat?: number
           lng?: number
           name?: string
+          notify_on_enter?: boolean | null
+          notify_on_exit?: boolean | null
           user_id?: string
         }
         Relationships: []

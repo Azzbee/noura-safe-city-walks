@@ -36,6 +36,7 @@ import CrimeAlertsPanel from '@/components/map/CrimeAlertsPanel';
 import HeatmapToggle from '@/components/map/HeatmapToggle';
 import SafetyScoreWidget from '@/components/map/SafetyScoreWidget';
 import { useSafetyScore } from '@/hooks/useSafetyScore';
+import { useGeofencing } from '@/hooks/useGeofencing';
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2 } from 'lucide-react';
@@ -217,7 +218,12 @@ export default function Index() {
     isEnabled: !!activeJourney,
   });
 
-  // Safety score calculation
+  // Geofencing for safe zones
+  useGeofencing({
+    userLat: !location.error ? location.lat : null,
+    userLng: !location.error ? location.lng : null,
+    enabled: !location.error,
+  });
   const safetyScore = useSafetyScore({
     userLocation: !location.error ? { lat: location.lat, lng: location.lng } : null,
     safetyOverlays: [...safetyOverlays, ...getCrimeOverlays()],
