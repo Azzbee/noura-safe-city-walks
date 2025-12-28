@@ -10,6 +10,17 @@ export interface SafetyBreakdown {
   road_type: number;
   activity: number;
   time_factor: number;
+  police_proximity?: number;
+  cctv_coverage?: number;
+  safe_landmarks?: number;
+}
+
+export interface SafetyPreferences {
+  lighting: number;
+  police_stations: number;
+  busy_areas: number;
+  cctv_coverage: number;
+  safe_landmarks: number;
 }
 
 export interface Route {
@@ -136,12 +147,13 @@ async function fetchAlternativeRoute(
   };
 }
 
-// Calculate safety score based on route characteristics and time of day
+// Calculate safety score based on route characteristics, time of day, and user preferences
 function calculateSafetyScore(
   distance: number,
   duration: number,
   routeType: 'fastest' | 'safest' | 'balanced',
-  timeOfDay: TimeOfDay
+  timeOfDay: TimeOfDay,
+  preferences?: SafetyPreferences
 ): { score: number; breakdown: SafetyBreakdown } {
   const timeMultiplier = {
     day: 1.0,
@@ -149,6 +161,27 @@ function calculateSafetyScore(
     night: 0.7,
     late_night: 0.6,
   }[timeOfDay];
+
+  // Default preference weights (1-5 scale, normalized to 0-1)
+  const defaultPrefs: SafetyPreferences = {
+    lighting: 3,
+    police_stations: 3,
+    busy_areas: 3,
+    cctv_coverage: 2,
+    safe_landmarks: 3,
+  };
+
+  const prefs = preferences || defaultPrefs;
+  const totalWeight = prefs.lighting + prefs.police_stations + prefs.busy_areas + prefs.cctv_coverage + prefs.safe_landmarks;
+  
+  // Normalize weights
+  const weights = {
+    lighting: prefs.lighting / totalWeight,
+    police: prefs.police_stations / totalWeight,
+    busy: prefs.busy_areas / totalWeight,
+    cctv: prefs.cctv_coverage / totalWeight,
+    landmarks: prefs.safe_landmarks / totalWeight,
+  };
 
   const baseScores = {
     fastest: 60,
@@ -162,27 +195,48 @@ function calculateSafetyScore(
       road_type: 0.6,
       activity: 0.7,
       time_factor: timeMultiplier,
+      police_proximity: 0.4,
+      cctv_coverage: 0.3,
+      safe_landmarks: 0.5,
     },
     balanced: {
       lighting: 0.75,
       road_type: 0.72,
       activity: 0.85,
       time_factor: timeMultiplier,
+      police_proximity: 0.65,
+      cctv_coverage: 0.6,
+      safe_landmarks: 0.7,
     },
     safest: {
       lighting: 0.9,
       road_type: 0.85,
       activity: 0.95,
       time_factor: timeMultiplier,
+      police_proximity: 0.9,
+      cctv_coverage: 0.85,
+      safe_landmarks: 0.9,
     },
   };
 
+  const breakdown = breakdowns[routeType];
+  
+  // Calculate weighted score based on user preferences
+  const weightedScore = 
+    (breakdown.lighting * weights.lighting) +
+    (breakdown.activity * weights.busy) +
+    ((breakdown.police_proximity ?? 0.5) * weights.police) +
+    ((breakdown.cctv_coverage ?? 0.5) * weights.cctv) +
+    ((breakdown.safe_landmarks ?? 0.5) * weights.landmarks);
+
+  const adjustedScore = baseScores[routeType] * timeMultiplier * (0.7 + weightedScore * 0.6);
+
   return {
-    score: Math.round(baseScores[routeType] * timeMultiplier),
+    score: Math.round(Math.min(100, adjustedScore)),
     breakdown: {
-      ...breakdowns[routeType],
-      lighting: breakdowns[routeType].lighting * timeMultiplier,
-      activity: breakdowns[routeType].activity * timeMultiplier,
+      ...breakdown,
+      lighting: breakdown.lighting * timeMultiplier,
+      activity: breakdown.activity * timeMultiplier,
     },
   };
 }
@@ -191,7 +245,8 @@ function calculateSafetyScore(
 async function generateRealRoutes(
   start: Coordinates,
   end: Coordinates,
-  timeOfDay: TimeOfDay
+  timeOfDay: TimeOfDay,
+  preferences?: SafetyPreferences
 ): Promise<RouteComparisonResult> {
   try {
     // Fetch three different routes
@@ -212,9 +267,9 @@ async function generateRealRoutes(
     const safestRoute = routes[routes.length - 1] || fastestRoute;
     const balancedRoute = routes.length > 2 ? routes[1] : fastestRoute;
 
-    const fastestSafety = calculateSafetyScore(fastestRoute.distance, fastestRoute.duration, 'fastest', timeOfDay);
-    const safestSafety = calculateSafetyScore(safestRoute.distance, safestRoute.duration, 'safest', timeOfDay);
-    const balancedSafety = calculateSafetyScore(balancedRoute.distance, balancedRoute.duration, 'balanced', timeOfDay);
+    const fastestSafety = calculateSafetyScore(fastestRoute.distance, fastestRoute.duration, 'fastest', timeOfDay, preferences);
+    const safestSafety = calculateSafetyScore(safestRoute.distance, safestRoute.duration, 'safest', timeOfDay, preferences);
+    const balancedSafety = calculateSafetyScore(balancedRoute.distance, balancedRoute.duration, 'balanced', timeOfDay, preferences);
 
     const fastest: Route = {
       route_id: 'fastest-' + Date.now(),
@@ -266,13 +321,14 @@ export async function getRoute(
   start: Coordinates,
   end: Coordinates,
   safetyWeight: number,
-  timeOfDay: TimeOfDay
+  timeOfDay: TimeOfDay,
+  preferences?: SafetyPreferences
 ): Promise<Route> {
   const apiUrl = getApiUrl();
   
   if (!apiUrl) {
-    // Use real OSRM routing
-    const routes = await generateRealRoutes(start, end, timeOfDay);
+    // Use real OSRM routing with user preferences
+    const routes = await generateRealRoutes(start, end, timeOfDay, preferences);
     if (safetyWeight > 0.7) return routes.safest;
     if (safetyWeight < 0.3) return routes.fastest;
     return routes.balanced;
@@ -299,13 +355,14 @@ export async function getRoute(
 export async function compareRoutes(
   start: Coordinates,
   end: Coordinates,
-  timeOfDay: TimeOfDay
+  timeOfDay: TimeOfDay,
+  preferences?: SafetyPreferences
 ): Promise<RouteComparisonResult> {
   const apiUrl = getApiUrl();
   
   if (!apiUrl) {
-    // Use real OSRM routing
-    return generateRealRoutes(start, end, timeOfDay);
+    // Use real OSRM routing with user preferences
+    return generateRealRoutes(start, end, timeOfDay, preferences);
   }
   
   const response = await fetch(`${apiUrl}/api/route/compare`, {

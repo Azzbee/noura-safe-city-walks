@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Save, Shield, Clock, KeyRound, User, Phone, Bell, ChevronRight, Radar } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Shield, Clock, KeyRound, User, Phone, Bell, ChevronRight, Radar, Star } from 'lucide-react';
 
 export default function Settings() {
   const { user, loading: authLoading } = useAuth();
@@ -219,6 +219,26 @@ export default function Settings() {
               <ChevronRight className="w-5 h-5 text-muted-foreground" />
             </div>
             <CardDescription className="pl-12">Geofencing & auto-notifications for locations</CardDescription>
+          </CardHeader>
+        </Card>
+
+        {/* Safety Preferences Link */}
+        <Card 
+          className="settings-section bg-card/80 border-border/50 backdrop-blur-sm 
+                     animate-fade-in-up opacity-0 stagger-3 cursor-pointer hover:bg-accent/50 transition-colors"
+          onClick={() => navigate('/settings/safety-preferences')}
+        >
+          <CardHeader className="pb-4">
+            <div className="flex items-center justify-between">
+              <CardTitle className="flex items-center gap-3 font-display">
+                <div className="p-2 rounded-lg bg-balanced/10 transition-colors">
+                  <Star className="w-5 h-5 text-balanced" />
+                </div>
+                Safety Preferences
+              </CardTitle>
+              <ChevronRight className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <CardDescription className="pl-12">Customize how we calculate safe routes</CardDescription>
           </CardHeader>
         </Card>
 
