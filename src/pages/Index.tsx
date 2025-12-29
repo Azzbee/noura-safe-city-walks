@@ -116,6 +116,9 @@ export default function Index() {
     return 'late_night';
   });
 
+  // Safety preferences (needed for route calculation)
+  const safetyPreferences = useSafetyPreferences();
+
   // Redirect to auth if not logged in
   useEffect(() => {
     if (!authLoading && !user) {
@@ -133,9 +136,10 @@ export default function Index() {
     calculateRoutes(
       { lat: userLat, lng: userLng },
       { lat: destination.lat, lng: destination.lng },
-      timeOfDay
+      timeOfDay,
+      safetyPreferences.preferences
     );
-  }, [destination, timeOfDay, location.lat, location.lng, location.error, activeJourney, calculateRoutes]);
+  }, [destination, timeOfDay, location.lat, location.lng, location.error, activeJourney, calculateRoutes, safetyPreferences.preferences]);
 
   const handleDestinationSelect = (lat: number, lng: number, address: string) => {
     setDestination({ lat, lng, address });
@@ -229,8 +233,6 @@ export default function Index() {
     enabled: !location.error,
   });
 
-  // Safety preferences onboarding
-  const safetyPreferences = useSafetyPreferences();
 
   const geofenceZonesForMap = geofencing.geofencedLocations.map(loc => ({
     id: loc.id,
