@@ -2,9 +2,10 @@ import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Route, RouteComparisonResult, formatDuration, formatDistance } from '@/services/routing';
-import { Shield, Zap, Scale, Navigation, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
+import { Shield, Zap, Scale, Navigation, X, Loader2, ChevronDown, ChevronUp, MessageCircleQuestion } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import SafetyBreakdownIndicator from './SafetyBreakdownIndicator';
+import RouteExplanation from './RouteExplanation';
 
 interface RouteSelectorProps {
   routes: RouteComparisonResult;
@@ -89,6 +90,7 @@ export default function RouteSelector({
   loading,
 }: RouteSelectorProps) {
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showExplanation, setShowExplanation] = useState(false);
   const selectedRouteData = selectedRoute ? routes[selectedRoute] : null;
 
   return (
@@ -136,6 +138,28 @@ export default function RouteSelector({
         {/* Detailed breakdown for selected route */}
         {showBreakdown && selectedRouteData?.safety_breakdown && (
           <SafetyBreakdownIndicator breakdown={selectedRouteData.safety_breakdown} />
+        )}
+
+        {/* Explain this route button */}
+        {selectedRoute && selectedRouteData && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowExplanation(!showExplanation)}
+            className="w-full text-muted-foreground hover:text-foreground"
+          >
+            <MessageCircleQuestion className="w-4 h-4 mr-2" />
+            {showExplanation ? 'Hide explanation' : 'Explain this route'}
+          </Button>
+        )}
+
+        {/* Route explanation */}
+        {showExplanation && selectedRoute && selectedRouteData && (
+          <RouteExplanation 
+            route={selectedRouteData} 
+            routeType={selectedRoute}
+            onClose={() => setShowExplanation(false)}
+          />
         )}
 
         {routes.comparison && (

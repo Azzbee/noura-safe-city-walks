@@ -136,83 +136,158 @@ function determineSeverity(text: string): 'low' | 'medium' | 'high' {
   return 'low';
 }
 
-async function fetchCrimeNews(): Promise<CrimeAlert[]> {
-  if (!NEWSAPI_KEY) {
-    console.error('NEWSAPI_KEY not configured');
-    return generateMockAlerts();
+// French RSS news feeds for crime/security news
+const FRENCH_RSS_SOURCES = [
+  { url: 'https://www.lemonde.fr/faits-divers/rss_full.xml', name: 'Le Monde' },
+  { url: 'https://www.lefigaro.fr/rss/figaro_actualites-faits_divers.xml', name: 'Le Figaro' },
+  { url: 'https://www.leparisien.fr/arc/outboundfeeds/rss/category/faits-divers.xml', name: 'Le Parisien' },
+];
+
+async function fetchRSSFeed(source: { url: string; name: string }): Promise<CrimeAlert[]> {
+  try {
+    const response = await fetch(source.url, {
+      headers: { 'User-Agent': 'SafeRouteApp/1.0' },
+    });
+    
+    if (!response.ok) {
+      console.log(`RSS fetch failed for ${source.name}: ${response.status}`);
+      return [];
+    }
+    
+    const xml = await response.text();
+    const alerts: CrimeAlert[] = [];
+    
+    // Simple XML parsing for RSS items
+    const itemMatches = xml.matchAll(/<item>([\s\S]*?)<\/item>/gi);
+    
+    for (const match of itemMatches) {
+      const itemXml = match[1];
+      
+      const titleMatch = itemXml.match(/<title><!\[CDATA\[(.*?)\]\]>|<title>(.*?)<\/title>/i);
+      const descMatch = itemXml.match(/<description><!\[CDATA\[(.*?)\]\]>|<description>(.*?)<\/description>/i);
+      const linkMatch = itemXml.match(/<link>(.*?)<\/link>|<link><!\[CDATA\[(.*?)\]\]>/i);
+      const dateMatch = itemXml.match(/<pubDate>(.*?)<\/pubDate>/i);
+      
+      const title = (titleMatch?.[1] || titleMatch?.[2] || '').trim();
+      const description = (descMatch?.[1] || descMatch?.[2] || '').replace(/<[^>]*>/g, '').trim();
+      const url = (linkMatch?.[1] || linkMatch?.[2] || '').trim();
+      const pubDate = dateMatch?.[1] || new Date().toISOString();
+      
+      if (!title) continue;
+      
+      const fullText = `${title} ${description}`;
+      const locationInfo = extractLocationFromText(fullText);
+      
+      if (locationInfo) {
+        alerts.push({
+          id: crypto.randomUUID(),
+          title,
+          description: description.slice(0, 300),
+          location: locationInfo.location,
+          lat: locationInfo.coords[0],
+          lng: locationInfo.coords[1],
+          severity: determineSeverity(fullText),
+          publishedAt: new Date(pubDate).toISOString(),
+          source: source.name,
+          url,
+        });
+      }
+    }
+    
+    console.log(`Found ${alerts.length} alerts from ${source.name}`);
+    return alerts;
+  } catch (error) {
+    console.error(`Error fetching RSS from ${source.name}:`, error);
+    return [];
   }
+}
 
-  // Queries specifically targeting France
-  const queries = [
-    'france crime paris',
-    'france violence faits divers',
-    'paris securite incident',
-    'ile-de-france delinquance',
-  ];
-
+async function fetchCrimeNews(): Promise<CrimeAlert[]> {
   const alerts: CrimeAlert[] = [];
   const seenUrls = new Set<string>();
-
-  for (const query of queries) {
-    try {
-      const url = new URL('https://newsapi.org/v2/everything');
-      url.searchParams.set('q', query);
-      url.searchParams.set('sortBy', 'publishedAt');
-      url.searchParams.set('pageSize', '20');
-      url.searchParams.set('apiKey', NEWSAPI_KEY);
-      // Filter by French and English sources
-      url.searchParams.set('language', 'fr');
-      
-      // Get news from last 30 days for better results
-      const fromDate = new Date();
-      fromDate.setDate(fromDate.getDate() - 30);
-      url.searchParams.set('from', fromDate.toISOString().split('T')[0]);
-
-      console.log(`Fetching news for query: ${query}`);
-      
-      const response = await fetch(url.toString());
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`NewsAPI error for "${query}":`, response.status, errorText);
-        continue;
+  
+  // First, try French RSS feeds (more reliable for France-specific news)
+  console.log('Fetching from French RSS sources...');
+  const rssResults = await Promise.all(FRENCH_RSS_SOURCES.map(fetchRSSFeed));
+  
+  for (const rssAlerts of rssResults) {
+    for (const alert of rssAlerts) {
+      if (!seenUrls.has(alert.url)) {
+        seenUrls.add(alert.url);
+        alerts.push(alert);
       }
+    }
+  }
+  
+  console.log(`Found ${alerts.length} alerts from RSS feeds`);
+  
+  // Also fetch from NewsAPI if configured
+  if (NEWSAPI_KEY && alerts.length < 10) {
+    console.log('Supplementing with NewsAPI...');
+    
+    // Queries specifically targeting France
+    const queries = [
+      'paris agression faits divers',
+      'france crime violence',
+      'paris vol incident securite',
+      'ile-de-france delinquance police',
+    ];
 
-      const data = await response.json();
-      
-      if (data.status !== 'ok') {
-        console.error('NewsAPI returned error:', data);
-        continue;
-      }
-
-      console.log(`Found ${data.articles?.length || 0} articles for "${query}"`);
-
-      for (const article of (data.articles || []) as NewsArticle[]) {
-        // Skip duplicates
-        if (seenUrls.has(article.url)) continue;
-        seenUrls.add(article.url);
-
-        const fullText = `${article.title} ${article.description || ''}`;
-        const locationInfo = extractLocationFromText(fullText);
+    for (const query of queries) {
+      try {
+        const url = new URL('https://newsapi.org/v2/everything');
+        url.searchParams.set('q', query);
+        url.searchParams.set('sortBy', 'publishedAt');
+        url.searchParams.set('pageSize', '15');
+        url.searchParams.set('apiKey', NEWSAPI_KEY);
+        url.searchParams.set('language', 'fr');
+        // French domains only
+        url.searchParams.set('domains', 'lemonde.fr,lefigaro.fr,leparisien.fr,20minutes.fr,bfmtv.com,francetvinfo.fr');
         
-        // Only include if we can determine a Paris location
-        if (locationInfo) {
-          alerts.push({
-            id: crypto.randomUUID(),
-            title: article.title,
-            description: article.description || '',
-            location: locationInfo.location,
-            lat: locationInfo.coords[0],
-            lng: locationInfo.coords[1],
-            severity: determineSeverity(fullText),
-            publishedAt: article.publishedAt,
-            source: article.source.name,
-            url: article.url,
-          });
+        const fromDate = new Date();
+        fromDate.setDate(fromDate.getDate() - 14);
+        url.searchParams.set('from', fromDate.toISOString().split('T')[0]);
+
+        console.log(`Fetching news for query: ${query}`);
+        
+        const response = await fetch(url.toString());
+        
+        if (!response.ok) {
+          console.error(`NewsAPI error for "${query}":`, response.status);
+          continue;
         }
+
+        const data = await response.json();
+        
+        if (data.status !== 'ok') continue;
+
+        console.log(`Found ${data.articles?.length || 0} articles for "${query}"`);
+
+        for (const article of (data.articles || []) as NewsArticle[]) {
+          if (seenUrls.has(article.url)) continue;
+          seenUrls.add(article.url);
+
+          const fullText = `${article.title} ${article.description || ''}`;
+          const locationInfo = extractLocationFromText(fullText);
+          
+          if (locationInfo) {
+            alerts.push({
+              id: crypto.randomUUID(),
+              title: article.title,
+              description: article.description || '',
+              location: locationInfo.location,
+              lat: locationInfo.coords[0],
+              lng: locationInfo.coords[1],
+              severity: determineSeverity(fullText),
+              publishedAt: article.publishedAt,
+              source: article.source.name,
+              url: article.url,
+            });
+          }
+        }
+      } catch (error) {
+        console.error(`Error fetching news for "${query}":`, error);
       }
-    } catch (error) {
-      console.error(`Error fetching news for "${query}":`, error);
     }
   }
 
@@ -226,7 +301,7 @@ async function fetchCrimeNews(): Promise<CrimeAlert[]> {
   alerts.sort((a, b) => new Date(b.publishedAt).getTime() - new Date(a.publishedAt).getTime());
 
   console.log(`Total crime alerts found: ${alerts.length}`);
-  return alerts.slice(0, 20);
+  return alerts.slice(0, 25);
 }
 
 // Generate mock alerts for demo when NewsAPI returns no results
