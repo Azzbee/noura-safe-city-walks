@@ -1,8 +1,10 @@
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Route, RouteComparisonResult, formatDuration, formatDistance } from '@/services/routing';
-import { Shield, Zap, Scale, Navigation, X, Loader2 } from 'lucide-react';
+import { Shield, Zap, Scale, Navigation, X, Loader2, ChevronDown, ChevronUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import SafetyBreakdownIndicator from './SafetyBreakdownIndicator';
 
 interface RouteSelectorProps {
   routes: RouteComparisonResult;
@@ -18,9 +20,10 @@ interface RouteOptionProps {
   route: Route;
   isSelected: boolean;
   onClick: () => void;
+  showBreakdown: boolean;
 }
 
-function RouteOption({ type, route, isSelected, onClick }: RouteOptionProps) {
+function RouteOption({ type, route, isSelected, onClick, showBreakdown }: RouteOptionProps) {
   const config = {
     safest: {
       icon: Shield,
@@ -65,9 +68,14 @@ function RouteOption({ type, route, isSelected, onClick }: RouteOptionProps) {
         <div>{formatDistance(route.distance_m)}</div>
         <div>{formatDuration(route.duration_s)}</div>
         <div className={config.color}>
-          {Math.round(route.safety_score * 100)}% safe
+          {Math.round(route.safety_score)}% safe
         </div>
       </div>
+      {showBreakdown && route.safety_breakdown && (
+        <div className="mt-2 pt-2 border-t border-border/50">
+          <SafetyBreakdownIndicator breakdown={route.safety_breakdown} compact />
+        </div>
+      )}
     </button>
   );
 }
@@ -80,13 +88,25 @@ export default function RouteSelector({
   onCancel,
   loading,
 }: RouteSelectorProps) {
+  const [showBreakdown, setShowBreakdown] = useState(false);
+  const selectedRouteData = selectedRoute ? routes[selectedRoute] : null;
+
   return (
     <Card className="bg-card/95 backdrop-blur border-primary/20">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
         <CardTitle className="text-lg">Choose Route</CardTitle>
-        <button onClick={onCancel} className="p-1 hover:bg-muted rounded">
-          <X className="w-5 h-5" />
-        </button>
+        <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setShowBreakdown(!showBreakdown)}
+            className="p-1 hover:bg-muted rounded text-muted-foreground hover:text-foreground transition-colors"
+            title={showBreakdown ? 'Hide safety details' : 'Show safety details'}
+          >
+            {showBreakdown ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+          </button>
+          <button onClick={onCancel} className="p-1 hover:bg-muted rounded">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex gap-2">
@@ -95,20 +115,28 @@ export default function RouteSelector({
             route={routes.safest}
             isSelected={selectedRoute === 'safest'}
             onClick={() => onSelectRoute('safest')}
+            showBreakdown={showBreakdown}
           />
           <RouteOption
             type="balanced"
             route={routes.balanced}
             isSelected={selectedRoute === 'balanced'}
             onClick={() => onSelectRoute('balanced')}
+            showBreakdown={showBreakdown}
           />
           <RouteOption
             type="fastest"
             route={routes.fastest}
             isSelected={selectedRoute === 'fastest'}
             onClick={() => onSelectRoute('fastest')}
+            showBreakdown={showBreakdown}
           />
         </div>
+
+        {/* Detailed breakdown for selected route */}
+        {showBreakdown && selectedRouteData?.safety_breakdown && (
+          <SafetyBreakdownIndicator breakdown={selectedRouteData.safety_breakdown} />
+        )}
 
         {routes.comparison && (
           <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">

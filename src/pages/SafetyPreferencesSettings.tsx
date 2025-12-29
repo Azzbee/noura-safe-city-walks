@@ -4,7 +4,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useSafetyPreferences, SafetyPreferences } from '@/hooks/useSafetyPreferences';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { ArrowLeft, Loader2, Save, Sun, Shield, Users, Video, MapPin, Star } from 'lucide-react';
+import { ArrowLeft, Loader2, Save, Sun, Shield, Users, Video, MapPin, Star, Navigation, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 const PREFERENCE_ITEMS = [
@@ -85,6 +85,8 @@ export default function SafetyPreferencesSettings() {
   const { preferences, loading, savePreferences } = useSafetyPreferences();
   const [localPrefs, setLocalPrefs] = useState<SafetyPreferences | null>(null);
   const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -98,6 +100,16 @@ export default function SafetyPreferencesSettings() {
     }
   }, [preferences, localPrefs]);
 
+  // Track changes
+  useEffect(() => {
+    if (localPrefs && preferences) {
+      const changed = Object.keys(localPrefs).some(
+        key => localPrefs[key as keyof SafetyPreferences] !== preferences[key as keyof SafetyPreferences]
+      );
+      setHasChanges(changed);
+    }
+  }, [localPrefs, preferences]);
+
   const handleSave = async () => {
     if (!localPrefs) return;
     setSaving(true);
@@ -105,14 +117,24 @@ export default function SafetyPreferencesSettings() {
     setSaving(false);
     if (success) {
       toast.success('Safety preferences saved');
+      setHasChanges(false);
+      setJustSaved(true);
     } else {
       toast.error('Failed to save preferences');
     }
   };
 
+  const handleRecalculateRoutes = () => {
+    toast.success('Routes will use your new preferences', {
+      description: 'Navigate to the map to calculate new routes',
+    });
+    navigate('/');
+  };
+
   const updatePref = (key: keyof SafetyPreferences, value: number) => {
     if (!localPrefs) return;
     setLocalPrefs({ ...localPrefs, [key]: value });
+    setJustSaved(false);
   };
 
   if (authLoading || loading || !localPrefs) {
@@ -178,19 +200,30 @@ export default function SafetyPreferencesSettings() {
           </CardContent>
         </Card>
 
-        <div className="pt-2">
+        <div className="pt-2 space-y-3">
           <Button 
             onClick={handleSave} 
             className="w-full h-12 font-display text-base hover:shadow-glow-md transition-all duration-300" 
-            disabled={saving}
+            disabled={saving || !hasChanges}
           >
             {saving ? (
               <Loader2 className="w-5 h-5 mr-2 animate-spin" />
             ) : (
               <Save className="w-5 h-5 mr-2" />
             )}
-            Save Preferences
+            {hasChanges ? 'Save Changes' : 'Preferences Saved'}
           </Button>
+
+          {justSaved && (
+            <Button 
+              onClick={handleRecalculateRoutes} 
+              variant="outline"
+              className="w-full h-12 font-display text-base border-primary/50 hover:bg-primary/10 transition-all duration-300 animate-fade-in"
+            >
+              <RefreshCw className="w-5 h-5 mr-2" />
+              Recalculate Routes with New Preferences
+            </Button>
+          )}
         </div>
       </main>
     </div>
