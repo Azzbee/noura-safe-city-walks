@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { compareRoutes, RouteComparisonResult, TimeOfDay, Coordinates } from '@/services/routing';
+import { compareRoutes, RouteComparisonResult, TimeOfDay, Coordinates, SafetyPreferences } from '@/services/routing';
 import { useToast } from './use-toast';
 
 export function useRouteCalculation() {
@@ -11,13 +11,14 @@ export function useRouteCalculation() {
   const calculateRoutes = useCallback(async (
     start: Coordinates,
     end: Coordinates,
-    timeOfDay: TimeOfDay
+    timeOfDay: TimeOfDay,
+    preferences?: SafetyPreferences
   ) => {
     setLoading(true);
     setError(null);
 
     try {
-      const result = await compareRoutes(start, end, timeOfDay);
+      const result = await compareRoutes(start, end, timeOfDay, preferences);
       setRoutes(result);
       return result;
     } catch (err) {
