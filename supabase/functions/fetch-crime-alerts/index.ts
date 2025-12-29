@@ -97,14 +97,22 @@ const PARIS_LOCATIONS: Record<string, [number, number]> = {
 function extractLocationFromText(text: string): { location: string; coords: [number, number] } | null {
   const lowerText = text.toLowerCase();
   
+  // Must contain France-related keywords to be included
+  const franceKeywords = ['france', 'paris', 'français', 'française', 'ile-de-france', 'parisien', 'métropole'];
+  const isFranceRelated = franceKeywords.some(kw => lowerText.includes(kw));
+  
+  if (!isFranceRelated) {
+    return null;
+  }
+  
   for (const [location, coords] of Object.entries(PARIS_LOCATIONS)) {
     if (lowerText.includes(location)) {
       return { location, coords };
     }
   }
   
-  // Default to central Paris if "paris" is mentioned but no specific location
-  if (lowerText.includes('paris')) {
+  // Default to central Paris if "paris" or "france" is mentioned but no specific location
+  if (lowerText.includes('paris') || lowerText.includes('france')) {
     return { location: 'Paris', coords: [48.8566, 2.3522] };
   }
   
@@ -134,11 +142,12 @@ async function fetchCrimeNews(): Promise<CrimeAlert[]> {
     return generateMockAlerts();
   }
 
+  // Queries specifically targeting France
   const queries = [
-    'paris crime',
-    'paris violence',
-    'paris theft',
-    'france security paris',
+    'france crime paris',
+    'france violence faits divers',
+    'paris securite incident',
+    'ile-de-france delinquance',
   ];
 
   const alerts: CrimeAlert[] = [];
@@ -151,6 +160,8 @@ async function fetchCrimeNews(): Promise<CrimeAlert[]> {
       url.searchParams.set('sortBy', 'publishedAt');
       url.searchParams.set('pageSize', '20');
       url.searchParams.set('apiKey', NEWSAPI_KEY);
+      // Filter by French and English sources
+      url.searchParams.set('language', 'fr');
       
       // Get news from last 30 days for better results
       const fromDate = new Date();
