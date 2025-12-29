@@ -14,6 +14,7 @@ import { usePushNotifications } from '@/hooks/usePushNotifications';
 import { useVoiceSOS } from '@/hooks/useVoiceSOS';
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 import { useLocationSharing } from '@/hooks/useLocationSharing';
+import { useJourneySafetyAlerts } from '@/hooks/useJourneySafetyAlerts';
 import { TimeOfDay } from '@/services/routing';
 import MapView, { RouteDisplay } from '@/components/map/MapView';
 import DestinationSearch from '@/components/map/DestinationSearch';
@@ -24,6 +25,7 @@ import SafetyOverlayToggle from '@/components/map/SafetyOverlayToggle';
 import SafetyLegend from '@/components/map/SafetyLegend';
 import SafetyTimeFilter from '@/components/map/SafetyTimeFilter';
 import QuickReportButton from '@/components/map/QuickReportButton';
+import CommunityReportsPanel from '@/components/map/CommunityReportsPanel';
 import Header from '@/components/layout/Header';
 import RouteServiceStatus from '@/components/routing/RouteServiceStatus';
 import RouteSelector from '@/components/journey/RouteSelector';
@@ -32,6 +34,7 @@ import CheckinPrompt from '@/components/journey/CheckinPrompt';
 import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
 import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
 import LocationShareButton from '@/components/journey/LocationShareButton';
+import SafetyAlertBanner from '@/components/journey/SafetyAlertBanner';
 import CrimeAlertsPanel from '@/components/map/CrimeAlertsPanel';
 import HeatmapToggle from '@/components/map/HeatmapToggle';
 import SafetyScoreWidget from '@/components/map/SafetyScoreWidget';
@@ -226,6 +229,14 @@ export default function Index() {
     isEnabled: !!activeJourney,
   });
 
+  // Real-time journey safety alerts
+  const journeySafetyAlerts = useJourneySafetyAlerts({
+    userLocation: !location.error ? { lat: location.lat, lng: location.lng } : null,
+    crimeAlerts,
+    safetyReports,
+    isJourneyActive: !!activeJourney,
+  });
+
   // Geofencing for safe zones
   const geofencing = useGeofencing({
     userLat: !location.error ? location.lat : null,
@@ -389,10 +400,13 @@ export default function Index() {
         )}
       </div>
 
-      {/* Safety score widget and crime alerts panel */}
+      {/* Safety score widget, community reports, and crime alerts panel */}
       <div className="absolute top-20 right-4 z-20 space-y-2 flex flex-col items-end">
         <SafetyScoreWidget score={safetyScore} />
         <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
+        <CommunityReportsPanel 
+          userLocation={!location.error ? { lat: location.lat, lng: location.lng } : null}
+        />
         <CrimeAlertsPanel
           alerts={crimeAlerts}
           loading={crimeAlertsLoading}
@@ -400,6 +414,16 @@ export default function Index() {
           onRefresh={refreshCrimeAlerts}
         />
       </div>
+
+      {/* Safety alert banner during journey */}
+      {activeJourney && journeySafetyAlerts.nearbyAlertCount > 0 && (
+        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
+          <SafetyAlertBanner
+            isInDangerZone={journeySafetyAlerts.isInDangerZone}
+            nearbyAlertCount={journeySafetyAlerts.nearbyAlertCount}
+          />
+        </div>
+      )}
 
       {/* Check-in prompt overlay */}
       {pendingCheckin && (
