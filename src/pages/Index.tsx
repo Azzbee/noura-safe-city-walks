@@ -457,7 +457,7 @@ export default function Index() {
 
       {/* Right side panels */}
       <div className="absolute top-20 right-4 z-20 space-y-2 flex flex-col items-end">
-        <WeatherWidget weather={weather.weather} loading={weather.loading} />
+        <WeatherWidget weather={weather.weather} condition={weather.condition} loading={weather.loading} />
         <SafetyScoreWidget score={safetyScore} />
         <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
         <CommunityReportsPanel 
