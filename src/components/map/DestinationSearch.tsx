@@ -88,16 +88,16 @@ export default function DestinationSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-card border border-border rounded-lg shadow-lg overflow-hidden z-50">
+        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-lg shadow-xl overflow-hidden z-[9999] max-h-80 overflow-y-auto">
           {results.map((result) => (
             <button
               key={result.place_id}
               onClick={() => handleSelect(result)}
-              className="w-full flex items-start gap-3 p-3 hover:bg-accent transition-colors text-left"
+              className="w-full flex items-start gap-3 p-3 hover:bg-accent transition-colors text-left bg-popover"
             >
               <MapPin className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium truncate">{formatAddress(result)}</p>
+                <p className="text-sm font-medium text-popover-foreground truncate">{formatAddress(result)}</p>
                 <p className="text-xs text-muted-foreground truncate">{result.display_name}</p>
               </div>
             </button>
