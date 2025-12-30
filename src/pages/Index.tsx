@@ -577,7 +577,7 @@ export default function Index() {
             </div>
 
             {/* Search bar, SOS, and safe places */}
-            <div className="flex items-center gap-3 pointer-events-auto">
+            <div className="flex items-center gap-3 pointer-events-auto relative z-[100]">
               <DestinationSearch
                 onSelect={handleDestinationSelect}
                 className="flex-1"

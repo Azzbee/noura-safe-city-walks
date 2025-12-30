@@ -88,7 +88,7 @@ export default function DestinationSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-2 bg-popover border border-border rounded-lg shadow-xl overflow-hidden z-[9999] max-h-80 overflow-y-auto">
+        <div className="absolute bottom-full left-0 right-0 mb-2 bg-popover border border-border rounded-lg shadow-xl overflow-hidden z-[9999] max-h-64 overflow-y-auto">
           {results.map((result) => (
             <button
               key={result.place_id}
