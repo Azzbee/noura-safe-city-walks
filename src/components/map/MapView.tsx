@@ -434,7 +434,11 @@ export default function MapView({
     const leafletMap = L.map(container, {
       center: center,
       zoom: zoom,
-      zoomControl: false,
+      zoomControl: true,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      touchZoom: true,
+      dragging: true,
     });
 
     L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
