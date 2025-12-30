@@ -70,7 +70,15 @@ export function useSafePlaces({
       // Calculate distances and filter by radius
       const placesWithDistance = (data || [])
         .map(place => ({
-          ...place,
+          id: place.id,
+          name: place.name,
+          type: place.type as SafePlaceType,
+          lat: Number(place.lat),
+          lng: Number(place.lng),
+          address: place.address ?? undefined,
+          phone: place.phone ?? undefined,
+          opening_hours: place.opening_hours as Record<string, unknown> | undefined,
+          verified: place.verified ?? false,
           distance_m: calculateDistance(userLat, userLng, Number(place.lat), Number(place.lng)),
         }))
         .filter(place => place.distance_m <= radiusMeters)
