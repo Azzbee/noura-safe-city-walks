@@ -383,38 +383,56 @@ export type Database = {
       }
       profiles: {
         Row: {
+          auto_notify_on_critical_battery: boolean | null
+          battery_critical_threshold: number | null
+          battery_warning_threshold: number | null
           created_at: string
           default_checkin_interval: number | null
           default_safety_weight: number | null
+          enable_battery_alerts: boolean | null
+          fake_call_caller_name: string | null
           full_name: string | null
           id: string
           phone: string | null
           safe_word: string | null
           safety_preferences: Json | null
+          shake_action: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          auto_notify_on_critical_battery?: boolean | null
+          battery_critical_threshold?: number | null
+          battery_warning_threshold?: number | null
           created_at?: string
           default_checkin_interval?: number | null
           default_safety_weight?: number | null
+          enable_battery_alerts?: boolean | null
+          fake_call_caller_name?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
           safe_word?: string | null
           safety_preferences?: Json | null
+          shake_action?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          auto_notify_on_critical_battery?: boolean | null
+          battery_critical_threshold?: number | null
+          battery_warning_threshold?: number | null
           created_at?: string
           default_checkin_interval?: number | null
           default_safety_weight?: number | null
+          enable_battery_alerts?: boolean | null
+          fake_call_caller_name?: string | null
           full_name?: string | null
           id?: string
           phone?: string | null
           safe_word?: string | null
           safety_preferences?: Json | null
+          shake_action?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -447,6 +465,51 @@ export type Database = {
           p256dh?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      safe_places: {
+        Row: {
+          address: string | null
+          created_at: string | null
+          id: string
+          lat: number
+          lng: number
+          name: string
+          opening_hours: Json | null
+          phone: string | null
+          source: string | null
+          type: string
+          updated_at: string | null
+          verified: boolean | null
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string | null
+          id?: string
+          lat: number
+          lng: number
+          name: string
+          opening_hours?: Json | null
+          phone?: string | null
+          source?: string | null
+          type: string
+          updated_at?: string | null
+          verified?: boolean | null
+        }
+        Update: {
+          address?: string | null
+          created_at?: string | null
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+          opening_hours?: Json | null
+          phone?: string | null
+          source?: string | null
+          type?: string
+          updated_at?: string | null
+          verified?: boolean | null
         }
         Relationships: []
       }
