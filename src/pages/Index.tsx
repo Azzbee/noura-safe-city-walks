@@ -15,6 +15,10 @@ import { useVoiceSOS } from '@/hooks/useVoiceSOS';
 import { useShakeDetection } from '@/hooks/useShakeDetection';
 import { useLocationSharing } from '@/hooks/useLocationSharing';
 import { useJourneySafetyAlerts } from '@/hooks/useJourneySafetyAlerts';
+import { useFakeCall } from '@/hooks/useFakeCall';
+import { useSafePlaces } from '@/hooks/useSafePlaces';
+import { useBatteryMonitor } from '@/hooks/useBatteryMonitor';
+import { useWeather } from '@/hooks/useWeather';
 import { TimeOfDay } from '@/services/routing';
 import MapView, { RouteDisplay } from '@/components/map/MapView';
 import DestinationSearch from '@/components/map/DestinationSearch';
@@ -35,12 +39,20 @@ import VoiceSOSIndicator from '@/components/journey/VoiceSOSIndicator';
 import ShakeSOSIndicator from '@/components/journey/ShakeSOSIndicator';
 import LocationShareButton from '@/components/journey/LocationShareButton';
 import SafetyAlertBanner from '@/components/journey/SafetyAlertBanner';
+import BatteryWarningBanner from '@/components/journey/BatteryWarningBanner';
+import WeatherSafetyWarning from '@/components/journey/WeatherSafetyWarning';
 import CrimeAlertsPanel from '@/components/map/CrimeAlertsPanel';
 import HeatmapToggle from '@/components/map/HeatmapToggle';
 import SafetyScoreWidget from '@/components/map/SafetyScoreWidget';
+import SafePlacesLayer from '@/components/map/SafePlacesLayer';
+import NearestSafePlaceButton from '@/components/map/NearestSafePlaceButton';
+import WeatherWidget from '@/components/map/WeatherWidget';
+import FakeCallButton from '@/components/safety/FakeCallButton';
+import FakeCallScreen from '@/components/safety/FakeCallScreen';
 import { useSafetyScore } from '@/hooks/useSafetyScore';
 import { useGeofencing } from '@/hooks/useGeofencing';
 import { useSafetyPreferences } from '@/hooks/useSafetyPreferences';
+import { useProfile } from '@/hooks/useProfile';
 import SafetyPreferencesOnboarding from '@/components/onboarding/SafetyPreferencesOnboarding';
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
@@ -244,7 +256,50 @@ export default function Index() {
     enabled: !location.error,
   });
 
+  // Profile for battery/fake call settings
+  const { profile } = useProfile();
 
+  // Safe places nearby
+  const safePlaces = useSafePlaces({
+    userLat: !location.error ? location.lat : null,
+    userLng: !location.error ? location.lng : null,
+    radiusMeters: 2000,
+  });
+
+  // Battery monitoring during journey
+  const batteryMonitor = useBatteryMonitor({
+    isJourneyActive: !!activeJourney,
+    warningThreshold: profile?.battery_warning_threshold ?? 20,
+    criticalThreshold: profile?.battery_critical_threshold ?? 10,
+    onCriticalBattery: () => {
+      if (profile?.auto_notify_on_critical_battery) {
+        // Could trigger emergency contact notification here
+        toast({
+          title: 'Emergency contacts may be notified',
+          description: 'Your battery is critically low.',
+          variant: 'destructive',
+        });
+      }
+    },
+  });
+
+  // Weather data
+  const weather = useWeather({
+    lat: !location.error ? location.lat : PARIS_CENTER[0],
+    lng: !location.error ? location.lng : PARIS_CENTER[1],
+  });
+
+  // Fake call feature
+  const fakeCall = useFakeCall();
+  
+  // Set caller name from profile when available
+  useEffect(() => {
+    if (profile?.fake_call_caller_name) {
+      fakeCall.setCallerName(profile.fake_call_caller_name);
+    }
+  }, [profile?.fake_call_caller_name]);
+
+  // Build geofence zones for map
   const geofenceZonesForMap = geofencing.geofencedLocations.map(loc => ({
     id: loc.id,
     name: loc.name,
@@ -400,8 +455,9 @@ export default function Index() {
         )}
       </div>
 
-      {/* Safety score widget, community reports, and crime alerts panel */}
+      {/* Right side panels */}
       <div className="absolute top-20 right-4 z-20 space-y-2 flex flex-col items-end">
+        <WeatherWidget weather={weather.weather} loading={weather.loading} />
         <SafetyScoreWidget score={safetyScore} />
         <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
         <CommunityReportsPanel 
@@ -414,6 +470,20 @@ export default function Index() {
           onRefresh={refreshCrimeAlerts}
         />
       </div>
+
+      {/* Weather safety warning during journey */}
+      {activeJourney && weather.condition && weather.getWeatherWarnings().length > 0 && (
+        <div className="absolute top-36 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
+          <WeatherSafetyWarning condition={weather.condition} warnings={weather.getWeatherWarnings()} />
+        </div>
+      )}
+
+      {/* Battery warning banner during journey */}
+      {activeJourney && batteryMonitor.isSupported && (batteryMonitor.isLow || batteryMonitor.isCritical) && (
+        <div className="absolute top-48 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
+          <BatteryWarningBanner battery={batteryMonitor} />
+        </div>
+      )}
 
       {/* Safety alert banner during journey */}
       {activeJourney && journeySafetyAlerts.nearbyAlertCount > 0 && (
@@ -448,6 +518,20 @@ export default function Index() {
                 isSupported={shakeDetection.isSupported}
               />
             </div>
+            <NearestSafePlaceButton
+              nearestPlace={safePlaces.nearestPlace}
+              placesByType={safePlaces.placesByType}
+              loading={safePlaces.loading}
+              onNavigate={safePlaces.navigateToPlace}
+              onCall={safePlaces.callPlace}
+            />
+            <FakeCallButton
+              onSchedule={fakeCall.scheduleCall}
+              onTriggerNow={fakeCall.triggerCall}
+              isScheduled={fakeCall.state === 'scheduled'}
+              remainingSeconds={fakeCall.getRemainingTime()}
+              onCancel={fakeCall.cancelScheduled}
+            />
             <LocationShareButton
               shareUrl={locationSharing.shareUrl}
               onCopy={locationSharing.copyShareUrl}
@@ -492,13 +576,31 @@ export default function Index() {
               <SavedLocationsBar onSelect={handleSavedLocationSelect} />
             </div>
 
-            {/* Search bar and SOS */}
+            {/* Search bar, SOS, and safe places */}
             <div className="flex items-center gap-3 pointer-events-auto">
               <DestinationSearch
                 onSelect={handleDestinationSelect}
                 className="flex-1"
               />
+              <NearestSafePlaceButton
+                nearestPlace={safePlaces.nearestPlace}
+                placesByType={safePlaces.placesByType}
+                loading={safePlaces.loading}
+                onNavigate={safePlaces.navigateToPlace}
+                onCall={safePlaces.callPlace}
+              />
               <SOSButton onPress={handleSOS} />
+            </div>
+            
+            {/* Fake call quick access */}
+            <div className="flex justify-center pointer-events-auto">
+              <FakeCallButton
+                onSchedule={fakeCall.scheduleCall}
+                onTriggerNow={fakeCall.triggerCall}
+                isScheduled={fakeCall.state === 'scheduled'}
+                remainingSeconds={fakeCall.getRemainingTime()}
+                onCancel={fakeCall.cancelScheduled}
+              />
             </div>
           </>
         )}

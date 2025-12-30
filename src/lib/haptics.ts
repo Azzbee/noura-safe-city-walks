@@ -1,7 +1,7 @@
 // Haptic feedback and sound effects for mobile interactions
 
 // Haptic patterns
-export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'sos' | 'geofence_enter' | 'geofence_exit';
+export type HapticPattern = 'light' | 'medium' | 'heavy' | 'success' | 'warning' | 'error' | 'sos' | 'geofence_enter' | 'geofence_exit' | 'notification' | 'call';
 
 const hapticPatterns: Record<HapticPattern, number[]> = {
   light: [10],
@@ -13,6 +13,8 @@ const hapticPatterns: Record<HapticPattern, number[]> = {
   sos: [100, 50, 100, 50, 100, 200, 300, 50, 300, 50, 300, 200, 100, 50, 100, 50, 100], // ... --- ...
   geofence_enter: [20, 30, 50, 30, 20], // Welcoming pattern
   geofence_exit: [50, 50, 100], // Departure pattern
+  notification: [50, 100, 50], // Notification pattern
+  call: [200, 100, 200, 100, 200, 500], // Incoming call vibration
 };
 
 // Check if Vibration API is supported

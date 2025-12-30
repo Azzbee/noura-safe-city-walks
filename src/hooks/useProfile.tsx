@@ -11,6 +11,14 @@ export interface UserProfile {
   safe_word?: string;
   default_checkin_interval: number;
   default_safety_weight: number;
+  // Battery monitoring settings
+  enable_battery_alerts?: boolean;
+  battery_warning_threshold?: number;
+  battery_critical_threshold?: number;
+  auto_notify_on_critical_battery?: boolean;
+  // Fake call settings
+  fake_call_caller_name?: string;
+  shake_action?: string;
   created_at: string;
   updated_at: string;
 }
@@ -21,6 +29,12 @@ export interface ProfileUpdate {
   safe_word?: string;
   default_checkin_interval?: number;
   default_safety_weight?: number;
+  enable_battery_alerts?: boolean;
+  battery_warning_threshold?: number;
+  battery_critical_threshold?: number;
+  auto_notify_on_critical_battery?: boolean;
+  fake_call_caller_name?: string;
+  shake_action?: string;
 }
 
 export function useProfile() {
