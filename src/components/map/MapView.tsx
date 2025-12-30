@@ -64,6 +64,7 @@ interface MapViewProps {
   geofenceVisible?: boolean;
   zoom?: number;
   className?: string;
+  onMapReady?: (mapInstance: L.Map) => void;
 }
 
 // Create animated user marker HTML
@@ -275,6 +276,7 @@ export default function MapView({
   geofenceVisible = true,
   zoom = 15,
   className = '',
+  onMapReady,
 }: MapViewProps) {
   const [map, setMap] = useState<L.Map | null>(null);
   const [mapReady, setMapReady] = useState(false);
@@ -447,6 +449,7 @@ export default function MapView({
 
     setMap(leafletMap);
     setMapReady(true);
+    onMapReady?.(leafletMap);
 
     return () => {
       leafletMap.remove();

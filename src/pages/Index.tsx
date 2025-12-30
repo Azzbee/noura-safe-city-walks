@@ -1,5 +1,6 @@
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import L from 'leaflet';
 import { useAuth } from '@/hooks/useAuth';
 import { useLocation } from '@/hooks/useLocation';
 import { useLocationHistory } from '@/hooks/useLocationHistory';
@@ -47,6 +48,7 @@ import SafetyScoreWidget from '@/components/map/SafetyScoreWidget';
 import SafePlacesLayer from '@/components/map/SafePlacesLayer';
 import NearestSafePlaceButton from '@/components/map/NearestSafePlaceButton';
 import WeatherWidget from '@/components/map/WeatherWidget';
+import RecenterButton from '@/components/map/RecenterButton';
 import FakeCallButton from '@/components/safety/FakeCallButton';
 import FakeCallScreen from '@/components/safety/FakeCallScreen';
 import { useSafetyScore } from '@/hooks/useSafetyScore';
@@ -119,6 +121,7 @@ export default function Index() {
     }
   }, []);
   
+  const mapRef = useRef<L.Map | null>(null);
   const [destination, setDestination] = useState<{ lat: number; lng: number; address: string } | null>(null);
   const [heatmapEnabled, setHeatmapEnabled] = useState(false);
   const [geofenceVisible, setGeofenceVisible] = useState(true);
@@ -210,6 +213,13 @@ export default function Index() {
     // Pass tracking URL if available from location sharing
     triggerSOS(currentLocation, locationSharing.shareUrl || undefined);
   }, [location.error, location.lat, location.lng, locationSharing.shareUrl, triggerSOS]);
+
+  // Recenter map on user location
+  const handleRecenter = useCallback(() => {
+    if (mapRef.current && !location.error) {
+      mapRef.current.flyTo([location.lat, location.lng], 16, { duration: 1 });
+    }
+  }, [location.error, location.lat, location.lng]);
 
   // Voice SOS - listens for safe word during active journey
   const voiceSOS = useVoiceSOS({
@@ -418,7 +428,16 @@ export default function Index() {
         geofenceZones={geofenceZonesForMap}
         geofenceVisible={geofenceVisible}
         zoom={15}
+        onMapReady={(map) => { mapRef.current = map; }}
       />
+
+      {/* Recenter button */}
+      <div className="absolute bottom-32 right-4 z-20 pointer-events-auto">
+        <RecenterButton 
+          onClick={handleRecenter} 
+          disabled={!!location.error} 
+        />
+      </div>
 
       {/* Header with menu and user */}
       <Header />
