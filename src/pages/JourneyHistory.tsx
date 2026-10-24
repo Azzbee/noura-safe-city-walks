@@ -104,7 +104,7 @@ function JourneyCard({ journey, index }: { journey: Journey; index: number }) {
             <div className="flex items-center gap-1.5 text-safe 
                             group-hover:text-safe transition-colors">
               <Shield className="w-4 h-4 icon-hover" />
-              <span>{Math.round(journey.safety_score)}% safe</span>
+              <span>Safety {Math.round(journey.safety_score)}/100</span>
             </div>
           )}
         </div>

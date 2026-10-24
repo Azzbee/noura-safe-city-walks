@@ -84,7 +84,7 @@ function generateExplanation(
     explanation = strengths.length
       ? `This route keeps you on ${list(strengths.slice(0, 3))}. `
       : 'This route avoids the least safe streets around you. ';
-    explanation += `It is scored for ${timeDesc} and has the highest safety score of the three options (${score}%).`;
+    explanation += `It is scored for ${timeDesc} and has the highest safety score of the three options (${score}/100, relative to the streets around you at this hour).`;
     if (weaknesses.length) explanation += ` Expect ${list(weaknesses)}.`;
   } else if (routeType === 'fastest') {
     explanation = 'This is the quickest route to your destination. ';

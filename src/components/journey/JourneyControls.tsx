@@ -44,7 +44,7 @@ export default function JourneyControls({
             <span>• {formatDuration(journey.duration_s)}</span>
           )}
           {journey.safety_score && (
-            <span>• Safety: {Math.round(journey.safety_score)}%</span>
+            <span>• Safety {Math.round(journey.safety_score)}/100</span>
           )}
         </div>
 

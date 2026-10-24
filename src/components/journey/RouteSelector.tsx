@@ -69,7 +69,7 @@ function RouteOption({ type, route, isSelected, onClick, showBreakdown }: RouteO
         <div>{formatDistance(route.distance_m)}</div>
         <div>{formatDuration(route.duration_s)}</div>
         <div className={config.color}>
-          {Math.round(route.safety_score)}% safe
+          safety {Math.round(route.safety_score)}/100
         </div>
       </div>
       {showBreakdown && route.safety_breakdown && (
@@ -165,7 +165,7 @@ export default function RouteSelector({
         {routes.comparison && (
           <div className="text-xs text-muted-foreground bg-muted/50 rounded p-2">
             Safest route is {routes.comparison.extra_distance_pct.toFixed(0)}% longer
-            but {routes.comparison.safety_improvement_pct.toFixed(0)}% safer
+            and scores {routes.comparison.safety_improvement_pct.toFixed(0)} points higher
           </div>
         )}
 
