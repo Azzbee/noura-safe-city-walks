@@ -52,56 +52,51 @@ function generateExplanation(
     return `This ${routeType} route was selected based on optimal path finding.`;
   }
 
-  const factors: string[] = [];
-  
-  // Analyze each factor
-  if (breakdown.lighting >= 0.8) {
-    factors.push('well-lit streets');
-  } else if (breakdown.lighting < 0.5) {
-    factors.push('some poorly lit sections');
-  }
-  
-  if (breakdown.activity >= 0.8) {
-    factors.push('busy pedestrian areas');
-  } else if (breakdown.activity < 0.5) {
-    factors.push('quieter streets');
-  }
-  
+  const strengths: string[] = [];
+  const weaknesses: string[] = [];
+
+  if (breakdown.lighting >= 0.8) strengths.push('well-lit streets');
+  else if (breakdown.lighting < 0.5) weaknesses.push('some poorly lit sections');
+
+  if (breakdown.activity >= 0.8) strengths.push('busy pedestrian areas');
+  else if (breakdown.activity < 0.5) weaknesses.push('quieter streets');
+
   if (breakdown.police_proximity && breakdown.police_proximity >= 0.7) {
-    factors.push('proximity to police stations');
+    strengths.push('proximity to police stations');
   }
-  
   if (breakdown.cctv_coverage && breakdown.cctv_coverage >= 0.7) {
-    factors.push('CCTV monitored areas');
+    strengths.push('CCTV monitored areas');
   }
-  
   if (breakdown.safe_landmarks && breakdown.safe_landmarks >= 0.7) {
-    factors.push('safe landmarks nearby');
+    strengths.push('safe landmarks nearby');
   }
 
-  const timeDesc = breakdown.time_factor >= 0.85 ? 'daytime conditions' : 
+  const list = (items: string[]) =>
+    items.length <= 1 ? items.join('') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`;
+
+  const timeDesc = breakdown.time_factor >= 0.85 ? 'daytime conditions' :
                    breakdown.time_factor >= 0.7 ? 'evening conditions' : 'nighttime conditions';
+  const score = Math.round(route.safety_score);
 
   let explanation = '';
-  
+
   if (routeType === 'safest') {
-    explanation = `This route prioritizes your safety by maximizing ${factors.slice(0, 2).join(' and ')}. `;
-    explanation += `It accounts for ${timeDesc}, `;
-    if (factors.length > 2) {
-      explanation += `and also benefits from ${factors.slice(2).join(', ')}.`;
-    } else {
-      explanation += `ensuring the highest safety score of ${route.safety_score}%.`;
-    }
+    explanation = strengths.length
+      ? `This route keeps you on ${list(strengths.slice(0, 3))}. `
+      : 'This route avoids the least safe streets around you. ';
+    explanation += `It is scored for ${timeDesc} and has the highest safety score of the three options (${score}%).`;
+    if (weaknesses.length) explanation += ` Expect ${list(weaknesses)}.`;
   } else if (routeType === 'fastest') {
-    explanation = `This is the quickest route to your destination. `;
-    explanation += `While it may have ${factors.filter(f => f.includes('poorly') || f.includes('quieter')).length > 0 ? 'some less optimal sections' : 'decent conditions'}, `;
-    explanation += `it minimizes travel time under current ${timeDesc}.`;
+    explanation = 'This is the quickest route to your destination. ';
+    explanation += weaknesses.length
+      ? `It passes ${list(weaknesses)} under current ${timeDesc}.`
+      : `Conditions along it are reasonable for ${timeDesc}.`;
     if (route.warnings && route.warnings.length > 0) {
       explanation += ` Note: ${route.warnings[0]}`;
     }
   } else {
-    explanation = `This route balances safety and speed. `;
-    explanation += `It offers ${factors.slice(0, 2).join(' and ')} while keeping your journey reasonably short. `;
+    explanation = 'This route balances safety and speed. ';
+    if (strengths.length) explanation += `It offers ${list(strengths.slice(0, 2))} while keeping the walk short. `;
     explanation += `A good compromise for ${timeDesc}.`;
   }
 

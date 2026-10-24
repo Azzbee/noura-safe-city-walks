@@ -1,73 +1,75 @@
-# Welcome to your Lovable project
+# Noura
 
-## Project info
+Safe walking routes for women in Paris. Instead of only the fastest path,
+Noura shows the fastest, balanced and safest routes side by side, scored on
+street lighting, police proximity, foot traffic, safe landmarks and time of day,
+and stays with you on the walk: live location sharing, check-ins, SOS, a fake
+incoming call and alerts near reported incidents.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+This repository is the app (React, Vite, TypeScript, Leaflet, Supabase,
+Capacitor for iOS). The safety routing engine lives in
+[noura-backend](https://github.com/Azzbee/noura-backend).
 
-## How can I edit this code?
+## Features
 
-There are several ways of editing your application.
+- **Safety-weighted routing**: fastest / balanced / safest with distance, time
+  and a safety score, plus "Explain this route"
+- **Personal preferences**: rate lighting, police, busy streets, CCTV and safe
+  landmarks once; every route is weighted by your answers
+- **Time of day**: day, evening, night and late night change scores and zones
+- **Safety layer**: commissariats, hospitals, metro hubs, lit areas, 24h
+  pharmacies, caution and danger zones, crime-alert heatmap
+- **Journey mode**: live tracking, check-ins ("I'm safe" / "Need help"),
+  proximity alerts, battery and weather warnings
+- **Emergency**: one-tap SOS (police 17, SAMU 15, fire 18, 112) that also
+  notifies your emergency contacts with a live tracking link; voice safe word
+  and shake-to-SOS on supported devices
+- **Fake call**: an incoming call from a contact you choose, now or on a timer
+- **Community**: crowd-sourced safety reports with voting
+- **Safe zones**: arrival and departure notifications for places like home
 
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Run it
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+npm install
+npm run dev            # http://localhost:8080
 ```
 
-**Edit a file directly in GitHub**
+Environment (`.env`):
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+| Variable | Purpose |
+| --- | --- |
+| `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Auth and data |
+| `VITE_ROUTING_API_URL` | noura-backend URL. Without it the app uses OSRM walking routes with estimated scores |
+| `VITE_MAP_TILE_URL` | Optional tile URL template (default CARTO dark) |
+| `VITE_DEMO_MODE` | `true` runs without Supabase (see below) |
 
-**Use GitHub Codespaces**
+### Demo mode
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+```sh
+VITE_DEMO_MODE=true npm run dev
+```
 
-## What technologies are used for this project?
+Swaps the Supabase client for an in-memory stand-in
+(`src/integrations/supabase/demo-client.ts`) seeded with a demo user, saved
+places, emergency contacts and community reports. Nothing leaves the browser:
+no account is created and no contact is messaged. Add `?demo-reset` to the URL
+to start fresh. Map tiles, geocoding (Nominatim), routing and weather still
+use their public services.
 
-This project is built with:
+### With the safety routing engine
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+```sh
+# in noura-backend
+pip install -r requirements.txt
+uvicorn main:app --port 8000
 
-## How can I deploy this project?
+# here
+VITE_ROUTING_API_URL=http://127.0.0.1:8000 npm run dev
+```
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+## Stack
 
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+React 18, Vite, TypeScript, Tailwind, shadcn/ui, Framer Motion, Leaflet +
+leaflet.heat, React Query, Supabase (auth, Postgres, edge functions),
+Capacitor.

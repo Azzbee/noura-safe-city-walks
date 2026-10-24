@@ -66,6 +66,7 @@ export default function SOSButton({
       <Button
         variant="destructive"
         onClick={handlePress}
+        aria-label="Emergency SOS"
         className={cn(
           'relative overflow-hidden font-display font-bold uppercase tracking-wider',
           'bg-gradient-to-br from-danger via-danger to-danger/80',

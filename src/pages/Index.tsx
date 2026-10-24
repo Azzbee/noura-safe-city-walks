@@ -303,6 +303,14 @@ export default function Index() {
 
   // Fake call feature
   const fakeCall = useFakeCall();
+
+  // Re-render every second while a fake call is scheduled so the countdown moves
+  const [, setFakeCallTick] = useState(0);
+  useEffect(() => {
+    if (fakeCall.state !== 'scheduled') return;
+    const id = setInterval(() => setFakeCallTick((n) => n + 1), 1000);
+    return () => clearInterval(id);
+  }, [fakeCall.state]);
   
   // Set caller name from profile when available
   useEffect(() => {
@@ -493,35 +501,41 @@ export default function Index() {
         </div>
       </div>
 
-      {/* Weather safety warning during journey */}
-      {activeJourney && weather.condition && weather.getWeatherWarnings().length > 0 && (
-        <div className="absolute top-36 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
-          <WeatherSafetyWarning condition={weather.condition} warnings={weather.getWeatherWarnings()} />
+      {/* Journey banners and the check-in prompt, stacked under the header */}
+      {(pendingCheckin || (activeJourney && (
+        journeySafetyAlerts.nearbyAlertCount > 0 ||
+        (weather.condition && weather.getWeatherWarnings().length > 0) ||
+        (batteryMonitor.isSupported && (batteryMonitor.isLow || batteryMonitor.isCritical))
+      ))) && (
+        <div className="absolute top-20 left-4 right-4 z-30 mx-auto max-w-md flex flex-col gap-2">
+          {pendingCheckin && <CheckinPrompt onRespond={respondToCheckin} />}
+          {activeJourney && journeySafetyAlerts.nearbyAlertCount > 0 && (
+            <SafetyAlertBanner
+              isInDangerZone={journeySafetyAlerts.isInDangerZone}
+              nearbyAlertCount={journeySafetyAlerts.nearbyAlertCount}
+            />
+          )}
+          {activeJourney && weather.condition && weather.getWeatherWarnings().length > 0 && (
+            <WeatherSafetyWarning condition={weather.condition} warnings={weather.getWeatherWarnings()} />
+          )}
+          {activeJourney && batteryMonitor.isSupported && (batteryMonitor.isLow || batteryMonitor.isCritical) && (
+            <BatteryWarningBanner battery={batteryMonitor} />
+          )}
         </div>
       )}
 
-      {/* Battery warning banner during journey */}
-      {activeJourney && batteryMonitor.isSupported && (batteryMonitor.isLow || batteryMonitor.isCritical) && (
-        <div className="absolute top-48 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
-          <BatteryWarningBanner battery={batteryMonitor} />
-        </div>
-      )}
-
-      {/* Safety alert banner during journey */}
-      {activeJourney && journeySafetyAlerts.nearbyAlertCount > 0 && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 z-30 max-w-md w-full px-4">
-          <SafetyAlertBanner
-            isInDangerZone={journeySafetyAlerts.isInDangerZone}
-            nearbyAlertCount={journeySafetyAlerts.nearbyAlertCount}
-          />
-        </div>
-      )}
-
-      {/* Check-in prompt overlay */}
-      {pendingCheckin && (
-        <div className="absolute top-20 left-1/2 -translate-x-1/2 right-4 z-30 max-w-sm mx-auto">
-          <CheckinPrompt onRespond={respondToCheckin} />
-        </div>
+      {/* Fake incoming call (was never rendered before) */}
+      {(fakeCall.state === 'ringing' || fakeCall.state === 'active' || fakeCall.state === 'ended') && (
+        <FakeCallScreen
+          state={fakeCall.state}
+          callerName={fakeCall.callerName}
+          callDuration={fakeCall.formatDuration(fakeCall.callDuration)}
+          currentResponse={fakeCall.currentResponse}
+          onAnswer={fakeCall.answerCall}
+          onDecline={fakeCall.declineCall}
+          onEnd={fakeCall.endCall}
+          onNextResponse={fakeCall.nextResponse}
+        />
       )}
 
       {/* Bottom controls */}
