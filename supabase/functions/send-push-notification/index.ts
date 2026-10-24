@@ -25,7 +25,16 @@ interface PushNotificationPayload {
   tag?: string;
 }
 
-async function sendWebPush(subscription: any, payload: any): Promise<boolean> {
+interface StoredSubscription {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+}
+
+async function sendWebPush(
+  subscription: StoredSubscription,
+  payload: Record<string, unknown>
+): Promise<boolean> {
   // Note: Full Web Push implementation requires web-push library
   // For now, we'll log the notification and return success
   // In production, you'd use a library like web-push

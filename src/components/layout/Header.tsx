@@ -1,4 +1,12 @@
-import { Menu, Shield, User, LogOut, Settings, Users, History } from 'lucide-react';
+import { Menu, Shield, User, LogOut, Settings, Users, History, MapPin, SlidersHorizontal, Bell, Activity } from 'lucide-react';
+import { useState } from 'react';
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -15,9 +23,20 @@ interface HeaderProps {
   onMenuClick?: () => void;
 }
 
+const MENU_ITEMS = [
+  { to: '/contacts', label: 'Emergency Contacts', icon: Users },
+  { to: '/history', label: 'Journey History', icon: History },
+  { to: '/settings/safety-preferences', label: 'Safety Preferences', icon: SlidersHorizontal },
+  { to: '/settings/geofence', label: 'Safe Zones', icon: MapPin },
+  { to: '/geofence-history', label: 'Arrivals & Departures', icon: Activity },
+  { to: '/settings/notifications', label: 'Notifications', icon: Bell },
+  { to: '/settings', label: 'Settings', icon: Settings },
+];
+
 export default function Header({ onMenuClick }: HeaderProps) {
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
 
   const handleSignOut = async () => {
     await signOut();
@@ -30,7 +49,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
       <Button
         variant="secondary"
         size="icon"
-        onClick={onMenuClick}
+        onClick={onMenuClick ?? (() => setMenuOpen(true))}
+        aria-label="Open menu"
         className="pointer-events-auto glass shadow-elevated hover:bg-accent/80 
                    hover:scale-105 active:scale-95 transition-all duration-200"
       >
@@ -114,6 +134,33 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
+      <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
+        <SheetContent side="left" className="w-[85vw] max-w-xs glass-strong border-border/50 pointer-events-auto">
+          <SheetHeader className="text-left">
+            <SheetTitle className="flex items-center gap-2 font-display">
+              <Shield className="w-5 h-5 text-primary" />
+              Noura
+            </SheetTitle>
+            <SheetDescription>Safe walking routes in Paris</SheetDescription>
+          </SheetHeader>
+          <nav className="mt-6 flex flex-col gap-1">
+            {MENU_ITEMS.map(({ to, label, icon: Icon }) => (
+              <button
+                key={to}
+                onClick={() => {
+                  setMenuOpen(false);
+                  navigate(to);
+                }}
+                className="flex items-center gap-3 rounded-lg px-3 py-3 text-sm text-left
+                           hover:bg-primary/10 hover:text-primary transition-colors"
+              >
+                <Icon className="w-4 h-4 text-muted-foreground" />
+                {label}
+              </button>
+            ))}
+          </nav>
+        </SheetContent>
+      </Sheet>
     </header>
   );
 }

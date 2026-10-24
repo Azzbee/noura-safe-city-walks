@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 
+// iOS 13+ exposes DeviceMotionEvent.requestPermission()
+type DeviceMotionEventWithPermission = typeof DeviceMotionEvent & {
+  requestPermission?: () => Promise<'granted' | 'denied'>;
+};
+
 interface ShakeDetectionOptions {
   threshold?: number;
   timeout?: number;
@@ -37,16 +42,16 @@ export function useShakeDetection({
     setIsSupported(supported);
     
     // Check if permission API exists (iOS 13+)
-    if (supported && typeof (DeviceMotionEvent as any).requestPermission !== 'function') {
+    if (supported && typeof (DeviceMotionEvent as unknown as DeviceMotionEventWithPermission).requestPermission !== 'function') {
       // Android or older iOS - permission not needed
       setPermissionGranted(true);
     }
   }, []);
 
   const requestPermission = useCallback(async () => {
-    if (typeof (DeviceMotionEvent as any).requestPermission === 'function') {
+    if (typeof (DeviceMotionEvent as unknown as DeviceMotionEventWithPermission).requestPermission === 'function') {
       try {
-        const permission = await (DeviceMotionEvent as any).requestPermission();
+        const permission = await (DeviceMotionEvent as unknown as DeviceMotionEventWithPermission).requestPermission!();
         if (permission === 'granted') {
           setPermissionGranted(true);
           return true;

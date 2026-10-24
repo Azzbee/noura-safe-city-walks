@@ -81,10 +81,16 @@ export function useJourneySafetyAlerts({
     return zones;
   }, [crimeAlerts, safetyReports]);
 
+  // Depend on the coordinates, not the object: callers pass a new
+  // { lat, lng } literal on every render, which used to re-run this effect
+  // (and its setState) on every render, an endless render loop.
+  const userLat = userLocation?.lat ?? null;
+  const userLng = userLocation?.lng ?? null;
+
   // Check proximity and trigger alerts
   useEffect(() => {
-    if (!isJourneyActive || !userLocation) {
-      setActiveAlerts([]);
+    if (!isJourneyActive || userLat === null || userLng === null) {
+      setActiveAlerts((prev) => (prev.length === 0 ? prev : []));
       return;
     }
 
@@ -93,12 +99,7 @@ export function useJourneySafetyAlerts({
     const nearbyZones: SafetyZone[] = [];
 
     zones.forEach((zone) => {
-      const distance = calculateDistance(
-        userLocation.lat,
-        userLocation.lng,
-        zone.lat,
-        zone.lng
-      );
+      const distance = calculateDistance(userLat, userLng, zone.lat, zone.lng);
 
       // Check if user is within the zone radius + 50m buffer (approaching)
       const approachRadius = zone.radius + 50;
@@ -134,8 +135,12 @@ export function useJourneySafetyAlerts({
       }
     });
 
-    setActiveAlerts(nearbyZones);
-  }, [userLocation, isJourneyActive, safetyZones, alertCooldownMs, toast]);
+    setActiveAlerts((prev) =>
+      prev.length === nearbyZones.length && prev.every((z, i) => z.id === nearbyZones[i].id)
+        ? prev
+        : nearbyZones
+    );
+  }, [userLat, userLng, isJourneyActive, safetyZones, alertCooldownMs, toast]);
 
   const clearAlertHistory = useCallback(() => {
     setAlertHistory([]);

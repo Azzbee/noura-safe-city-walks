@@ -192,6 +192,14 @@ function injectMarkerStyles(): void {
       border: none !important;
       background: transparent !important;
     }
+    .leaflet-bottom.leaflet-right .leaflet-control-zoom {
+      margin-bottom: 190px !important;
+      margin-right: 16px !important;
+    }
+    @media (max-width: 639px) {
+      /* Phones pinch to zoom */
+      .leaflet-control-zoom { display: none !important; }
+    }
 
     .leaflet-control-zoom a {
       background: hsl(230, 20%, 12%) !important;
@@ -436,16 +444,26 @@ export default function MapView({
     const leafletMap = L.map(container, {
       center: center,
       zoom: zoom,
-      zoomControl: true,
+      // Zoom buttons sit bottom-right (desktop only, see CSS): top-left
+      // collided with the header's menu button.
+      zoomControl: false,
       scrollWheelZoom: true,
       doubleClickZoom: true,
       touchZoom: true,
       dragging: true,
     });
 
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    }).addTo(leafletMap);
+    L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
+
+    L.tileLayer(
+      import.meta.env.VITE_MAP_TILE_URL ||
+        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      {
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        maxZoom: 19,
+      }
+    ).addTo(leafletMap);
 
     setMap(leafletMap);
     setMapReady(true);
@@ -457,10 +475,14 @@ export default function MapView({
   }, []);
 
   // Update center/zoom
+  // Depend on the numbers, not the array: the parent passes a new array
+  // literal on every render, which used to snap the map back to the user's
+  // position on every re-render (undoing pans and route framing).
+  const [centerLat, centerLng] = center;
   useEffect(() => {
     if (!map) return;
-    map.setView(center, zoom);
-  }, [map, center, zoom]);
+    map.setView([centerLat, centerLng], zoom);
+  }, [map, centerLat, centerLng, zoom]);
 
   // Animated user location marker
   useEffect(() => {
@@ -646,6 +668,30 @@ export default function MapView({
       polylines.forEach((p) => p.remove());
     };
   }, [map, mapReady, routes]);
+
+  // Frame the routes whenever a new set is shown, leaving room for the
+  // route card at the bottom of the screen.
+  const lastFittedRef = useRef<string>('');
+  useEffect(() => {
+    if (!map || !mapReady || routes.length === 0) {
+      if (routes.length === 0) lastFittedRef.current = '';
+      return;
+    }
+    const key = routes
+      .map((r) => `${r.geometry.length}:${r.geometry[0]?.join(',')}:${r.geometry[r.geometry.length - 1]?.join(',')}`)
+      .join('|');
+    if (key === lastFittedRef.current) return;
+    lastFittedRef.current = key;
+    const bounds = L.latLngBounds(routes.flatMap((r) => r.geometry));
+    if (!bounds.isValid()) return;
+    const phone = map.getSize().x < 640;
+    map.flyToBounds(bounds, {
+      paddingTopLeft: phone ? [64, 150] : [120, 140],
+      paddingBottomRight: phone ? [64, isJourneyActive ? 420 : 340] : [380, 220],
+      duration: 1.1,
+      maxZoom: 17,
+    });
+  }, [map, mapReady, routes, isJourneyActive]);
 
   // Safety overlays with enhanced rendering
   useEffect(() => {

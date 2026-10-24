@@ -18,6 +18,16 @@ interface GeofenceEvent {
   created_at: string;
 }
 
+interface GeofenceEventRow {
+  id: string;
+  location_id: string;
+  event_type: 'entered' | 'exited';
+  lat: number;
+  lng: number;
+  created_at: string;
+  saved_locations: { name: string } | null;
+}
+
 export default function GeofenceHistory() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
@@ -54,7 +64,7 @@ export default function GeofenceHistory() {
       if (error) throw error;
 
       setEvents(
-        (data || []).map((e: any) => ({
+        (data || []).map((e: GeofenceEventRow) => ({
           id: e.id,
           location_id: e.location_id,
           location_name: e.saved_locations?.name || 'Unknown',

@@ -59,6 +59,7 @@ import SafetyPreferencesOnboarding from '@/components/onboarding/SafetyPreferenc
 import { MapSkeleton } from '@/components/ui/art-deco-skeleton';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, Shield } from 'lucide-react';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Button } from '@/components/ui/button';
 
 // Paris center coordinates
@@ -68,6 +69,7 @@ export default function Index() {
   const { user, loading: authLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const {
     activeJourney,
     pendingCheckin,
@@ -431,19 +433,11 @@ export default function Index() {
         onMapReady={(map) => { mapRef.current = map; }}
       />
 
-      {/* Recenter button */}
-      <div className="absolute bottom-32 right-4 z-20 pointer-events-auto">
-        <RecenterButton 
-          onClick={handleRecenter} 
-          disabled={!!location.error} 
-        />
-      </div>
-
       {/* Header with menu and user */}
       <Header />
 
       {/* Safety overlay toggle and legend */}
-      <div className="absolute top-20 left-4 z-20 space-y-2 pointer-events-auto">
+      <div className="absolute top-20 left-4 z-20 flex flex-col items-start gap-2 pointer-events-auto">
         <SafetyOverlayToggle
           visible={overlaysVisible}
           loading={overlaysLoading}
@@ -459,9 +453,10 @@ export default function Index() {
           size="sm"
           onClick={() => setGeofenceVisible(!geofenceVisible)}
           className="h-9 gap-1.5"
+          aria-label="Safe Zones"
         >
           <Shield className="w-4 h-4" />
-          <span className="text-xs">Safe Zones</span>
+          <span className="text-xs hidden sm:inline">Safe Zones</span>
         </Button>
         {overlaysVisible && (
           <>
@@ -476,8 +471,13 @@ export default function Index() {
 
       {/* Right side panels */}
       <div className="absolute top-20 right-4 z-20 space-y-2 flex flex-col items-end">
-        <WeatherWidget weather={weather.weather} condition={weather.condition} loading={weather.loading} />
-        <SafetyScoreWidget score={safetyScore} />
+        <WeatherWidget
+          weather={weather.weather}
+          condition={weather.condition}
+          loading={weather.loading}
+          compact={isMobile}
+        />
+        <SafetyScoreWidget score={safetyScore} compact={isMobile} />
         <QuickReportButton lat={mapCenter[0]} lng={mapCenter[1]} />
         <CommunityReportsPanel 
           userLocation={!location.error ? { lat: location.lat, lng: location.lng } : null}
@@ -488,6 +488,9 @@ export default function Index() {
           lastFetched={crimeAlertsLastFetched}
           onRefresh={refreshCrimeAlerts}
         />
+        <div className="pointer-events-auto">
+          <RecenterButton onClick={handleRecenter} disabled={!!location.error} />
+        </div>
       </div>
 
       {/* Weather safety warning during journey */}
@@ -595,32 +598,47 @@ export default function Index() {
               <SavedLocationsBar onSelect={handleSavedLocationSelect} />
             </div>
 
-            {/* Search bar, SOS, and safe places */}
-            <div className="flex items-center gap-3 pointer-events-auto relative z-[100]">
+            {/* Search bar (full width on phones), safe places and SOS */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pointer-events-auto relative z-[100]">
               <DestinationSearch
                 onSelect={handleDestinationSelect}
-                className="flex-1"
+                className="flex-1 min-w-0"
               />
-              <NearestSafePlaceButton
-                nearestPlace={safePlaces.nearestPlace}
-                placesByType={safePlaces.placesByType}
-                loading={safePlaces.loading}
-                onNavigate={safePlaces.navigateToPlace}
-                onCall={safePlaces.callPlace}
-              />
-              <SOSButton onPress={handleSOS} />
+              <div className="flex items-center gap-3">
+                <NearestSafePlaceButton
+                  nearestPlace={safePlaces.nearestPlace}
+                  placesByType={safePlaces.placesByType}
+                  loading={safePlaces.loading}
+                  onNavigate={safePlaces.navigateToPlace}
+                  onCall={safePlaces.callPlace}
+                  className="flex-1 sm:flex-none"
+                />
+                {isMobile && (
+                  <FakeCallButton
+                    onSchedule={fakeCall.scheduleCall}
+                    onTriggerNow={fakeCall.triggerCall}
+                    isScheduled={fakeCall.state === 'scheduled'}
+                    remainingSeconds={fakeCall.getRemainingTime()}
+                    onCancel={fakeCall.cancelScheduled}
+                    className="flex-1"
+                  />
+                )}
+                <SOSButton onPress={handleSOS} />
+              </div>
             </div>
-            
-            {/* Fake call quick access */}
-            <div className="flex justify-center pointer-events-auto">
-              <FakeCallButton
-                onSchedule={fakeCall.scheduleCall}
-                onTriggerNow={fakeCall.triggerCall}
-                isScheduled={fakeCall.state === 'scheduled'}
-                remainingSeconds={fakeCall.getRemainingTime()}
-                onCancel={fakeCall.cancelScheduled}
-              />
-            </div>
+
+            {/* Fake call quick access (desktop) */}
+            {!isMobile && (
+              <div className="flex justify-center pointer-events-auto">
+                <FakeCallButton
+                  onSchedule={fakeCall.scheduleCall}
+                  onTriggerNow={fakeCall.triggerCall}
+                  isScheduled={fakeCall.state === 'scheduled'}
+                  remainingSeconds={fakeCall.getRemainingTime()}
+                  onCancel={fakeCall.cancelScheduled}
+                />
+              </div>
+            )}
           </>
         )}
 

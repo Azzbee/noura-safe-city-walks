@@ -342,6 +342,7 @@ export async function getRoute(
       end,
       safety_weight: safetyWeight,
       time_of_day: timeOfDay,
+      preferences,
     }),
   });
 
@@ -372,6 +373,7 @@ export async function compareRoutes(
       start,
       end,
       time_of_day: timeOfDay,
+      preferences,
     }),
   });
 

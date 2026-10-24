@@ -56,10 +56,15 @@ export default function CrimeAlertsPanel({
           className="w-full flex items-center justify-between p-3 hover:bg-accent/50 transition-colors"
         >
           <div className="flex items-center gap-2">
-            <div className="p-1.5 bg-destructive/10 rounded-lg">
+            <div className="relative p-1.5 bg-destructive/10 rounded-lg">
               <AlertTriangle className="w-4 h-4 text-destructive" />
+              {!isExpanded && alerts.length > 0 && (
+                <span className="sm:hidden absolute -top-1.5 -right-1.5 min-w-4 h-4 px-1 rounded-full bg-destructive text-[10px] font-bold text-destructive-foreground flex items-center justify-center">
+                  {alerts.length}
+                </span>
+              )}
             </div>
-            <div className="text-left">
+            <div className={isExpanded ? 'text-left' : 'text-left hidden sm:block'}>
               <span className="text-sm font-medium text-foreground">Crime Alerts</span>
               <div className="flex items-center gap-1.5 mt-0.5">
                 {highSeverityCount > 0 && (
@@ -82,7 +87,7 @@ export default function CrimeAlertsPanel({
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7"
+              className={isExpanded ? "h-7 w-7" : "h-7 w-7 hidden sm:inline-flex"}
               onClick={(e) => {
                 e.stopPropagation();
                 onRefresh();
@@ -94,7 +99,7 @@ export default function CrimeAlertsPanel({
             {isExpanded ? (
               <ChevronUp className="w-4 h-4 text-muted-foreground" />
             ) : (
-              <ChevronDown className="w-4 h-4 text-muted-foreground" />
+              <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
             )}
           </div>
         </button>

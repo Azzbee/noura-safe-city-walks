@@ -135,14 +135,14 @@ export default function CommunityReportsPanel({ userLocation, className }: Commu
   };
 
   return (
-    <Card className={cn('bg-card/95 backdrop-blur border-primary/20 w-64', className)}>
+    <Card className={cn('bg-card/95 backdrop-blur border-primary/20', isExpanded ? 'w-[min(18rem,calc(100vw-2rem))]' : 'w-auto sm:w-64', className)}>
       <CardHeader 
         className="py-2 px-3 cursor-pointer flex flex-row items-center justify-between"
         onClick={() => setIsExpanded(!isExpanded)}
       >
         <div className="flex items-center gap-2">
           <MessageSquarePlus className="w-4 h-4 text-primary" />
-          <CardTitle className="text-sm font-medium">Community Reports</CardTitle>
+          <CardTitle className={cn('text-sm font-medium', !isExpanded && 'hidden sm:block')}>Community Reports</CardTitle>
           {nearbyReports.length > 0 && (
             <Badge variant="secondary" className="text-xs px-1.5">
               {nearbyReports.length}
@@ -152,7 +152,7 @@ export default function CommunityReportsPanel({ userLocation, className }: Commu
         {isExpanded ? (
           <ChevronUp className="w-4 h-4 text-muted-foreground" />
         ) : (
-          <ChevronDown className="w-4 h-4 text-muted-foreground" />
+          <ChevronDown className="w-4 h-4 text-muted-foreground hidden sm:block" />
         )}
       </CardHeader>
 

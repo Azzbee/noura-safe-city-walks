@@ -292,8 +292,19 @@ export function useGeofencing({ userLat, userLng, enabled = true }: UseGeofencin
       geofenceStatesRef.current.set(location.id, { locationId: location.id, isInside });
     }
 
-    setActiveZones(currentlyInside);
+    setActiveZones((prev) =>
+      prev.length === currentlyInside.length && prev.every((id, i) => id === currentlyInside[i])
+        ? prev
+        : currentlyInside
+    );
   }, [enabled, userLat, userLng, geofencedLocations, showLocalNotification, toast, notifyContacts, logGeofenceEvent]);
+
+  // Run the enter/exit check whenever the position or the zones change.
+  // (Previously checkGeofences was defined but never called, so arrival and
+  // departure notifications never fired.)
+  useEffect(() => {
+    checkGeofences();
+  }, [checkGeofences]);
 
   return {
     geofencedLocations,

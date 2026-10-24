@@ -19,6 +19,7 @@ export default function SafetyOverlayToggle({
       size="sm"
       onClick={onToggle}
       disabled={loading}
+      aria-label={visible ? 'Hide safety layer' : 'Show safety layer'}
       className={cn(
         "shadow-lg transition-all",
         visible && "bg-safe/20 border-safe text-safe hover:bg-safe/30"
@@ -26,13 +27,13 @@ export default function SafetyOverlayToggle({
     >
       {visible ? (
         <>
-          <X className="w-4 h-4 mr-2" />
-          Hide Safety
+          <X className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">Hide Safety</span>
         </>
       ) : (
         <>
-          <Layers className="w-4 h-4 mr-2" />
-          Show Safety
+          <Layers className="w-4 h-4 sm:mr-2" />
+          <span className="hidden sm:inline">Show Safety</span>
         </>
       )}
     </Button>

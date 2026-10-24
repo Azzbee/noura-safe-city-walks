@@ -5,9 +5,11 @@ import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip
 
 interface SafetyScoreWidgetProps {
   score: SafetyScore;
+  /** Ring only, for phone layouts */
+  compact?: boolean;
 }
 
-export default function SafetyScoreWidget({ score }: SafetyScoreWidgetProps) {
+export default function SafetyScoreWidget({ score, compact = false }: SafetyScoreWidgetProps) {
   const getScoreColor = () => {
     switch (score.level) {
       case 'safe':
@@ -58,7 +60,7 @@ export default function SafetyScoreWidget({ score }: SafetyScoreWidgetProps) {
           animate={{ scale: 1, opacity: 1 }}
           className={`
             pointer-events-auto cursor-pointer
-            flex items-center gap-2 px-3 py-2 rounded-xl
+            flex items-center gap-2 ${compact ? 'p-1.5' : 'px-3 py-2'} rounded-xl
             border backdrop-blur-md shadow-lg
             transition-all duration-300 hover:scale-105
             ${getBackgroundClass()}
@@ -102,7 +104,7 @@ export default function SafetyScoreWidget({ score }: SafetyScoreWidgetProps) {
           </div>
 
           {/* Label and icon */}
-          <div className="flex flex-col">
+          <div className={compact ? 'hidden' : 'flex flex-col'}>
             <div className="flex items-center gap-1" style={{ color: getScoreColor() }}>
               {getScoreIcon()}
               <span className="text-xs font-semibold">{score.label}</span>

@@ -48,6 +48,10 @@ export function useBatteryMonitor({
   const hasWarnedRef = useRef(false);
   const hasCriticalRef = useRef(false);
   const batteryRef = useRef<BatteryManager | null>(null);
+  // Keep the latest callback in a ref so an inline arrow from the caller
+  // does not re-subscribe to the Battery API (and re-set state) every render.
+  const onCriticalRef = useRef(onCriticalBattery);
+  onCriticalRef.current = onCriticalBattery;
 
   const updateBatteryStatus = useCallback((battery: BatteryManager) => {
     const level = Math.round(battery.level * 100);
@@ -55,13 +59,15 @@ export function useBatteryMonitor({
     const isLow = level <= warningThreshold && !charging;
     const isCritical = level <= criticalThreshold && !charging;
 
-    setStatus({
-      level,
-      charging,
-      isSupported: true,
-      isLow,
-      isCritical,
-    });
+    setStatus((prev) =>
+      prev.level === level &&
+      prev.charging === charging &&
+      prev.isSupported &&
+      prev.isLow === isLow &&
+      prev.isCritical === isCritical
+        ? prev
+        : { level, charging, isSupported: true, isLow, isCritical }
+    );
 
     // Only show warnings during active journey
     if (isJourneyActive && !charging) {
@@ -85,7 +91,7 @@ export function useBatteryMonitor({
           description: `Battery at ${level}%! Your phone may shut down soon. Consider notifying your contacts.`,
           variant: 'destructive',
         });
-        onCriticalBattery?.();
+        onCriticalRef.current?.();
       }
     }
 
@@ -96,17 +102,18 @@ export function useBatteryMonitor({
     if (charging || level > criticalThreshold) {
       hasCriticalRef.current = false;
     }
-  }, [isJourneyActive, warningThreshold, criticalThreshold, toast, onCriticalBattery]);
+  }, [isJourneyActive, warningThreshold, criticalThreshold, toast]);
 
   useEffect(() => {
     const nav = navigator as NavigatorWithBattery;
     
     if (!nav.getBattery) {
-      setStatus(prev => ({ ...prev, isSupported: false }));
+      setStatus(prev => (prev.isSupported ? { ...prev, isSupported: false } : prev));
       return;
     }
 
     let mounted = true;
+    let unsubscribe: (() => void) | null = null;
 
     nav.getBattery().then((battery) => {
       if (!mounted) return;
@@ -123,7 +130,7 @@ export function useBatteryMonitor({
       battery.addEventListener('levelchange', handleChange);
       battery.addEventListener('chargingchange', handleChange);
 
-      return () => {
+      unsubscribe = () => {
         battery.removeEventListener('levelchange', handleChange);
         battery.removeEventListener('chargingchange', handleChange);
       };
@@ -136,6 +143,7 @@ export function useBatteryMonitor({
 
     return () => {
       mounted = false;
+      unsubscribe?.();
     };
   }, [updateBatteryStatus]);
 

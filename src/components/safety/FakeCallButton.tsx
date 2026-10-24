@@ -80,7 +80,7 @@ export default function FakeCallButton({
             initial={{ opacity: 0, y: 10, scale: 0.95 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
-            className="absolute bottom-full mb-2 left-0 right-0"
+            className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-[260px] z-50"
           >
             <Card className="bg-card/95 backdrop-blur border-border/50 shadow-xl">
               <CardHeader className="pb-2 pt-3 px-3">
@@ -132,7 +132,7 @@ export default function FakeCallButton({
         variant="outline"
         size="sm"
         className={cn(
-          "gap-2 bg-card/80 backdrop-blur border-border/50",
+          "w-full h-11 sm:h-9 gap-2 bg-card/80 backdrop-blur border-border/50",
           isExpanded && "ring-2 ring-primary/50"
         )}
         onClick={() => setIsExpanded(!isExpanded)}

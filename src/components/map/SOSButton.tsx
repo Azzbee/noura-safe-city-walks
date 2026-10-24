@@ -75,7 +75,7 @@ export default function SOSButton({
           'active:scale-95',
           isLarge
             ? 'h-24 w-24 rounded-full text-base gap-1 flex-col shadow-glow-danger'
-            : 'h-14 px-8 rounded-full gap-3 shadow-elevated',
+            : 'h-11 sm:h-14 px-5 sm:px-8 rounded-full gap-3 shadow-elevated shrink-0',
           className
         )}
       >
@@ -95,8 +95,9 @@ export default function SOSButton({
             </>
           ) : (
             <>
-              <Phone className="w-5 h-5" />
-              <span>Emergency SOS</span>
+              <Phone className="w-5 h-5 hidden sm:block" />
+              <span className="sm:hidden">SOS</span>
+              <span className="hidden sm:inline">Emergency SOS</span>
             </>
           )}
         </div>

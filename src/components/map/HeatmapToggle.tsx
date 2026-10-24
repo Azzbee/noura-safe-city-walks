@@ -18,6 +18,7 @@ export default function HeatmapToggle({ enabled, onToggle, pointCount = 0 }: Hea
           variant={enabled ? "default" : "outline"}
           size="sm"
           onClick={onToggle}
+          aria-label="Heatmap"
           className={`
             relative h-9 gap-2 transition-all duration-300
             ${enabled 
@@ -32,7 +33,7 @@ export default function HeatmapToggle({ enabled, onToggle, pointCount = 0 }: Hea
           >
             <Flame className={`w-4 h-4 ${enabled ? 'text-white' : 'text-muted-foreground'}`} />
           </motion.div>
-          <span className="text-xs font-medium">Heatmap</span>
+          <span className="text-xs font-medium hidden sm:inline">Heatmap</span>
           {enabled && pointCount > 0 && (
             <span className="absolute -top-1 -right-1 w-4 h-4 bg-white text-amber-600 text-[10px] font-bold rounded-full flex items-center justify-center">
               {pointCount > 9 ? '9+' : pointCount}
