@@ -41,7 +41,8 @@ Environment (`.env`):
 | --- | --- |
 | `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY` | Auth and data |
 | `VITE_ROUTING_API_URL` | noura-backend URL. Without it the app uses OSRM walking routes with estimated scores |
-| `VITE_MAP_TILE_URL` | Optional tile URL template (default CARTO dark) |
+| `VITE_CARTO_API_KEY` | Free CARTO basemaps key ([carto.com/basemaps/apikey](https://carto.com/basemaps/apikey)). Required since autumn 2026: without it the map shows "API KEY REQUIRED" |
+| `VITE_MAP_TILE_URL` | Optional full tile URL template (overrides the CARTO default) |
 | `VITE_DEMO_MODE` | `true` runs without Supabase (see below) |
 
 ### Demo mode

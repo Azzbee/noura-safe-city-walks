@@ -455,10 +455,18 @@ export default function MapView({
 
     L.control.zoom({ position: 'bottomright' }).addTo(leafletMap);
 
-    L.tileLayer(
+    // CARTO basemaps need a (free) API key since autumn 2026; without one
+    // every tile is an "API KEY REQUIRED" placeholder.
+    // https://carto.com/basemaps/apikey
+    const cartoKey = import.meta.env.VITE_CARTO_API_KEY;
+    const tileUrl =
       import.meta.env.VITE_MAP_TILE_URL ||
-        'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
+      'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png' +
+        (cartoKey ? `?key=${encodeURIComponent(cartoKey)}` : '');
+    L.tileLayer(
+      tileUrl,
       {
+        subdomains: 'abcd',
         attribution:
           '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         maxZoom: 19,
