@@ -6,6 +6,7 @@ export interface SearchResult {
   lat: string;
   lon: string;
   type: string;
+  name?: string;
   address?: {
     house_number?: string;
     road?: string;
@@ -75,7 +76,18 @@ export function formatAddress(result: SearchResult): string {
   }
 
   const parts: string[] = [];
-  
+
+  // Named places (squares, stations, landmarks): lead with the name, which
+  // Nominatim puts first in display_name. Without this, "Place Pigalle"
+  // showed up as "9th Arrondissement, 75009".
+  const name = result.name || result.display_name.split(',')[0]?.trim();
+  const isStreetAddress = Boolean(address.house_number) || name === address.road;
+  if (name && !isStreetAddress) {
+    parts.push(name);
+    if (address.suburb) parts.push(address.suburb);
+    return parts.join(', ');
+  }
+
   if (address.house_number && address.road) {
     parts.push(`${address.house_number} ${address.road}`);
   } else if (address.road) {

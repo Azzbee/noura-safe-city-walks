@@ -116,7 +116,7 @@ export function useJourneySafetyAlerts({
           // Trigger alert
           const isEntering = distance <= zone.radius;
           const alertMessage = isEntering
-            ? `You are in a ${zone.severity || ''} safety area`
+            ? `You are in a ${zone.severity === 'high' ? 'high-risk' : zone.severity === 'medium' ? 'caution' : 'reported incident'} area`
             : `Approaching: ${zone.name || 'Safety concern ahead'}`;
 
           triggerHaptic(zone.severity === 'high' ? 'heavy' : 'medium');
